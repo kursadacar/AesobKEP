@@ -1,16 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BaseOutputPath>D:\Project Files\Gits\AesobKEP\_Build\$(MSBuildProjectName)\</BaseOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Aesob.KEP\Aesob.KEP.csproj" />
+    <ProjectReference Include="..\Aesob.Web.Core\Aesob.Web.Core.csproj" />
     <ProjectReference Include="..\Aesob.Web.Library\Aesob.Web.Library.csproj" />
-    <ProjectReference Include="..\AesobKEP.Core\Aesob.Web.Core.csproj" />
-    <ProjectReference Include="..\AesobKEP\Aesob.KEP.csproj" />
   </ItemGroup>
 
 </Project>

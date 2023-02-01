@@ -1,4 +1,5 @@
 ﻿using Aesob.Web.Core.Internal;
+using Aesob.Web.Library.Service;
 
 namespace Aesob.Web.Core
 {
@@ -30,6 +31,11 @@ namespace Aesob.Web.Core
         public void Stop()
         {
             IsRunning = false;
+        }
+
+        internal IAesobService GetService<T>() where T : IAesobService
+        {
+            return _serviceManager.GetService<T>();
         }
     }
 }

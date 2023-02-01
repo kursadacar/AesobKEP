@@ -1,4 +1,4 @@
-﻿using Aesob.KEP.Data;
+﻿using Aesob.KEP.Model;
 
 namespace Aesob.KEP.Utility
 {

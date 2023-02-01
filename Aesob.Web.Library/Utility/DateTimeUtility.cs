@@ -2,7 +2,7 @@
 
 namespace Aesob.Web.Library.Utility
 {
-    public static class DateTimeUtilities
+    public static class DateTimeUtility
     {
         private static string GetFormattedDate(DateTime dateTime, bool includeHour)
         {

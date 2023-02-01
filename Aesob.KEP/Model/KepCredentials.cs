@@ -1,4 +1,4 @@
-﻿namespace Aesob.KEP.Data
+﻿namespace Aesob.KEP.Model
 {
     internal class KepCredentials
     {

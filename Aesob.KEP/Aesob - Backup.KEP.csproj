@@ -6,12 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <BaseOutputPath>D:\Project Files\Gits\AesobKEP\_Build\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>D:\Project Files\Gits\AesobKEP\_Build\</BaseIntermediateOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Aesob.Web.Core\Aesob.Web.Core.csproj" />
     <ProjectReference Include="..\Aesob.Web.Library\Aesob.Web.Library.csproj" />
-    <ProjectReference Include="..\Dependencies\PTTKEP_Source\PTT.KEP.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>

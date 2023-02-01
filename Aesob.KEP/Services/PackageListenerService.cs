@@ -1,13 +1,13 @@
-﻿using Aesob.KEP.Data;
-using Aesob.KEP.Utility;
+﻿using System;
+using System.Collections.Generic;
+using System.ServiceModel;
+using System.Threading.Tasks;
+using System.Xml;
+using Aesob.KEP.Model;
+using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
 using Aesob.Web.Library.Service;
-using PTTKEP;
-using System.Configuration;
-using System.Net;
-using System.ServiceModel;
-using System.Xml;
-//using Tr.Com.Eimza.EYazisma;
+using Tr.Com.Eimza.EYazisma;
 
 namespace Aesob.KEP.Services
 {
@@ -16,22 +16,25 @@ namespace Aesob.KEP.Services
         private const float _loginTrialInterval = 5f;
         private const float _checkInterval = 10f;//Check every 10 seconds
 
+        private IAesobService _thisAsInterface;
+
         private bool _isLoggedIn;
         private float _checkTimer;
 
-        private PttKep _pttKep;
-        private const string _wsdlUrl = "https://eyazisma.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php";
-        //private EYazismaApi _eYazisma;
+        private EYazismaApi _eYazisma;
 
         void IAesobService.Start()
         {
             var configs = GetWebServiceConfigs();
-            var endPoint = new EndpointAddress(_wsdlUrl);
 
-            _pttKep = new PttKep(configs, endPoint);
+            _thisAsInterface = this;
 
-            //var credentials = CredentialsHelper.GetCredentials();
-            //_eYazisma = new EYazismaApi(credentials.AccountName, credentials.IdNumber, credentials.Password, credentials.PassCode, configs);
+            var account = _thisAsInterface.GetConfig("Hesap");
+            var id = _thisAsInterface.GetConfig("TC");
+            var password = _thisAsInterface.GetConfig("Parola");
+            var passCode = _thisAsInterface.GetConfig("Sifre");
+
+            _eYazisma = new EYazismaApi(account, id, password, passCode, configs);
 
             var loginTask = TryLogin();
 
@@ -47,20 +50,12 @@ namespace Aesob.KEP.Services
                 Debug.Print(loginInfo);
 
                 //var regularLoginResult = _eYazisma.Giris(EYazismaGirisTur.OTP);
-                var loginParams = new eyGiris()
-                {
-                    girisTur = eyGirisTur.BASE,
-                    girisTurSpecified = false,
-                    kepHesap = GetCurAccount()
-                };
 
-                var loginTask = _pttKep.API.GirisAsync(new PTTKEP.GirisRequest(loginParams));
-                loginTask.Wait();
-                var regularLoginResult = loginTask.Result?.@return;
+                var regularLoginResult = _eYazisma.Giris(EYazismaGirisTur.OTP);
 
-                bool isSuccess = regularLoginResult?.durum == "0";
+                bool isSuccess = regularLoginResult?.Durum== "0";
                 string status = isSuccess ? "Başarılı" : "Başarısız";
-                Debug.Print($"Giriş Sonuç: {status}. Mesaj: {regularLoginResult?.hataaciklama}");
+                Debug.Print($"Giriş Sonuç: {status}. Mesaj: {regularLoginResult?.HataAciklama}");
 
                 if (!isSuccess)
                 {
@@ -68,16 +63,19 @@ namespace Aesob.KEP.Services
                     continue;
                 }
 
-                //var secureLoginResult =_eYazisma.GuvenliEGiris(regularLoginResult.GuvenlikId, p7s);
-                //isSuccess = secureLoginResult.Durum == "0";
-                //status = isSuccess ? "Başarılı" : "Başarısız";
-                //Debug.Print($"Güvenli Giriş Sonuç: {status}. Mesaj: {secureLoginResult.HataAciklama}");
+                var smsKey = Console.ReadLine();
 
-                //if (!isSuccess)
-                //{
-                //    await Task.Delay(loginTrialInterval);
-                //    continue;
-                //}
+                var secureLoginResult = _eYazisma.GuvenliGiris(regularLoginResult.GuvenlikId, smsKey);
+
+                isSuccess = secureLoginResult?.Durum == "0";
+                status = isSuccess ? "Başarılı" : "Başarısız";
+                Debug.Print($"Güvenli Giriş Sonuç: {status}. Mesaj: {secureLoginResult?.HataAciklama}");
+
+                if (!isSuccess)
+                {
+                    await Task.Delay(loginTrialInterval);
+                    continue;
+                }
 
                 Debug.Print("Giriş başarılı!");
 
@@ -131,38 +129,14 @@ namespace Aesob.KEP.Services
 
             var curDate = DateTime.Now;
 
-            //var package = _eYazisma.PaketSorgula(curDate.AddMinutes(-_checkInterval), curDate, "Inbox");
-            var parameters = new eyPaketSorgula()
-            {
-                ilktarih = curDate.AddMinutes(_checkInterval),
-                ilktarihSpecified = true,
-                sontarih = curDate,
-                sontarihSpecified = true,
-                dizin = "INBOX",
-                kepHesap = GetCurAccount()
-            };
+            var package = _eYazisma.PaketSorgula(curDate.AddMinutes(-_checkInterval), curDate, "Inbox");
 
-            var package = _pttKep.API.PaketSorgulaAsync(new PaketSorgulaRequest(parameters))?.Result?.@return;
-
-            if(package == null || (package.durum.Length == 1 && package.hataaciklama.Length == 1 && package.durum[0] != 0))
+            if (package == null || (package.Durum.Length == 1 && package.HataAciklama.Length == 1 && package.Durum[0] != 0))
             {
-                Debug.Print("Error while getting packages: " + package?.hataaciklama[0] ?? "Package is null");
+                Debug.Print("Error while getting packages: " + package?.HataAciklama[0] ?? "Package is null");
             }
 
             return PackageData.CreateFrom(package);
-        }
-
-        private eyKepHesapGirisP GetCurAccount()
-        {
-            var credentials = CredentialsHelper.GetCredentials();
-
-            return new eyKepHesapGirisP()
-            {
-                kepHesap = credentials.AccountName,
-                parola = credentials.Password,
-                sifre = credentials.PassCode,
-                tcno = credentials.IdNumber
-            };
         }
 
         private void AddPackageToEDYS(PackageData packageData)

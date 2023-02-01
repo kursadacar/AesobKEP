@@ -13,8 +13,10 @@ namespace Aesob.Web.Core.Internal
         private const int _serviceUpdateInterval = (int)(0.1f * 1000);
 
         internal static bool IsRunning { get; private set; }
+        internal static ServiceManager Instance { get; private set; }
 
         private Dictionary<Type, IAesobService> _serviceInstances;
+        private Dictionary<IAesobService, Dictionary<string, string>> _serviceConfigs;
         private DateTime _lastUpdateTime;
         private Task _updateTask;
 
@@ -24,6 +26,52 @@ namespace Aesob.Web.Core.Internal
         internal ServiceManager()
         {
             _serviceInstances = new Dictionary<Type, IAesobService>();
+            _serviceConfigs = new Dictionary<IAesobService, Dictionary<string, string>>();
+
+            Instance = this;
+        }
+
+        internal IAesobService GetService<T>() where T : IAesobService
+        {
+            if(_serviceInstances.TryGetValue(typeof(T), out var service))
+            {
+                return service;
+            }
+
+            return null;
+        }
+
+        internal void SetServiceConfig(IAesobService service, string key, string value)
+        {
+            if(_serviceConfigs.TryGetValue(service, out var config))
+            {
+                config[key] = value;
+            }
+            else
+            {
+                Debug.FailedAssert($"Could not find service in config dictionary: {service.GetType().Name}");
+            }
+        }
+
+        internal string GetServiceConfig(IAesobService service, string key)
+        {
+            if(_serviceConfigs.TryGetValue(service, out var config))
+            {
+                if(config.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                else
+                {
+                    Debug.FailedAssert($"Could not find config parameter: {key} in config for: {service.GetType().Name}");
+                }
+            }
+            else
+            {
+                Debug.FailedAssert($"Could not find service in config dictionary: {service.GetType().Name}");
+            }
+
+            return string.Empty;
         }
 
         internal void Start()
@@ -31,6 +79,7 @@ namespace Aesob.Web.Core.Internal
             _serviceProvider = new AesobServiceProvider();
             _configurationManager = new AesobConfigurationManager();
             _serviceInstances.Clear();
+            _serviceConfigs.Clear();
 
             Debug.Assert(_serviceProvider != null, "Service Provider can't be null");
             Debug.Assert(_configurationManager != null, "Configuration Manager can't be null");
@@ -39,6 +88,11 @@ namespace Aesob.Web.Core.Internal
             {
                 var serviceTypes = _serviceProvider.CollectAvailableServiceTypes().ToList();
                 _serviceInstances = CreateServices(serviceTypes.ToList());
+
+                foreach(var serviceKvp in _serviceInstances)
+                {
+                    _serviceConfigs.Add(serviceKvp.Value, new Dictionary<string, string>());
+                }
 
                 ConfigureServices(_serviceInstances.Values.ToList());
 

@@ -16,7 +16,7 @@ namespace Aesob.Web.Library
 
         public static void Print(string message)
         {
-            Console.WriteLine(DateTimeUtilities.GetTextAppendedToDateTime(DateTime.Now, message, true)); ;
+            Console.WriteLine(DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true)); ;
         }
     }
 }
