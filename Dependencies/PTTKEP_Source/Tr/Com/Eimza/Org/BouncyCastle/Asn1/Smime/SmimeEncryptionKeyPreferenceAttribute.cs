@@ -1,0 +1,23 @@
+using Tr.Com.Eimza.Org.BouncyCastle.Asn1.Cms;
+using Tr.Com.Eimza.Org.BouncyCastle.Asn1.X509;
+
+namespace Tr.Com.Eimza.Org.BouncyCastle.Asn1.Smime
+{
+	internal class SmimeEncryptionKeyPreferenceAttribute : AttributeX509
+	{
+		public SmimeEncryptionKeyPreferenceAttribute(IssuerAndSerialNumber issAndSer)
+			: base(SmimeAttributes.EncrypKeyPref, new DerSet(new DerTaggedObject(false, 0, issAndSer)))
+		{
+		}
+
+		public SmimeEncryptionKeyPreferenceAttribute(RecipientKeyIdentifier rKeyID)
+			: base(SmimeAttributes.EncrypKeyPref, new DerSet(new DerTaggedObject(false, 1, rKeyID)))
+		{
+		}
+
+		public SmimeEncryptionKeyPreferenceAttribute(Asn1OctetString sKeyID)
+			: base(SmimeAttributes.EncrypKeyPref, new DerSet(new DerTaggedObject(false, 2, sKeyID)))
+		{
+		}
+	}
+}

@@ -1,0 +1,10 @@
+namespace Tr.Com.Eimza.Org.BouncyCastle.Asn1.X509
+{
+	internal class CertPolicyID : DerObjectIdentifier
+	{
+		public CertPolicyID(string id)
+			: base(id)
+		{
+		}
+	}
+}

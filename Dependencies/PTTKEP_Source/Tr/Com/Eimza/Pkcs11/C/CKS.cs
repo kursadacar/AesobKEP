@@ -1,0 +1,11 @@
+namespace Tr.Com.Eimza.Pkcs11.C
+{
+	internal enum CKS : uint
+	{
+		CKS_RO_PUBLIC_SESSION,
+		CKS_RO_USER_FUNCTIONS,
+		CKS_RW_PUBLIC_SESSION,
+		CKS_RW_USER_FUNCTIONS,
+		CKS_RW_SO_FUNCTIONS
+	}
+}

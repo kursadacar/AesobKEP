@@ -1,0 +1,173 @@
+using System;
+using System.Collections;
+using System.IO;
+using Tr.Com.Eimza.Org.BouncyCastle.Asn1;
+using Tr.Com.Eimza.Org.BouncyCastle.Asn1.Tsp;
+using Tr.Com.Eimza.Org.BouncyCastle.Asn1.X509;
+using Tr.Com.Eimza.Org.BouncyCastle.Math;
+using Tr.Com.Eimza.Org.BouncyCastle.X509;
+
+namespace Tr.Com.Eimza.Org.BouncyCastle.Tsp
+{
+	internal class TimeStampRequest : X509ExtensionBase
+	{
+		private readonly TimeStampReq req;
+
+		private readonly X509Extensions extensions;
+
+		public int Version
+		{
+			get
+			{
+				return req.Version.Value.IntValue;
+			}
+		}
+
+		public string MessageImprintAlgOid
+		{
+			get
+			{
+				return req.MessageImprint.HashAlgorithm.ObjectID.Id;
+			}
+		}
+
+		public string ReqPolicy
+		{
+			get
+			{
+				if (req.ReqPolicy != null)
+				{
+					return req.ReqPolicy.Id;
+				}
+				return null;
+			}
+		}
+
+		public BigInteger Nonce
+		{
+			get
+			{
+				if (req.Nonce != null)
+				{
+					return req.Nonce.Value;
+				}
+				return null;
+			}
+		}
+
+		public bool CertReq
+		{
+			get
+			{
+				if (req.CertReq != null)
+				{
+					return req.CertReq.IsTrue;
+				}
+				return false;
+			}
+		}
+
+		internal X509Extensions Extensions
+		{
+			get
+			{
+				return req.Extensions;
+			}
+		}
+
+		public virtual bool HasExtensions
+		{
+			get
+			{
+				return extensions != null;
+			}
+		}
+
+		public TimeStampRequest(TimeStampReq req)
+		{
+			this.req = req;
+			extensions = req.Extensions;
+		}
+
+		public TimeStampRequest(byte[] req)
+			: this(new Asn1InputStream(req))
+		{
+		}
+
+		public TimeStampRequest(Stream input)
+			: this(new Asn1InputStream(input))
+		{
+		}
+
+		private TimeStampRequest(Asn1InputStream str)
+		{
+			try
+			{
+				req = TimeStampReq.GetInstance(str.ReadObject());
+			}
+			catch (InvalidCastException ex)
+			{
+				throw new IOException("malformed request: " + ((ex != null) ? ex.ToString() : null));
+			}
+			catch (ArgumentException ex2)
+			{
+				throw new IOException("malformed request: " + ((ex2 != null) ? ex2.ToString() : null));
+			}
+		}
+
+		public byte[] GetMessageImprintDigest()
+		{
+			return req.MessageImprint.GetHashedMessage();
+		}
+
+		public void Validate(IList algorithms, IList policies, IList extensions)
+		{
+			if (!algorithms.Contains(MessageImprintAlgOid))
+			{
+				throw new TspValidationException("request contains unknown algorithm.", 128);
+			}
+			if (policies != null && ReqPolicy != null && !policies.Contains(ReqPolicy))
+			{
+				throw new TspValidationException("request contains unknown policy.", 256);
+			}
+			if (Extensions != null && extensions != null)
+			{
+				foreach (DerObjectIdentifier extensionOid in Extensions.ExtensionOids)
+				{
+					if (!extensions.Contains(extensionOid.Id))
+					{
+						throw new TspValidationException("request contains unknown extension.", 8388608);
+					}
+				}
+			}
+			if (TspUtil.GetDigestLength(MessageImprintAlgOid) != GetMessageImprintDigest().Length)
+			{
+				throw new TspValidationException("imprint digest the wrong length.", 4);
+			}
+		}
+
+		public byte[] GetEncoded()
+		{
+			return req.GetEncoded();
+		}
+
+		public new virtual X509Extension GetExtension(DerObjectIdentifier oid)
+		{
+			if (extensions != null)
+			{
+				return extensions.GetExtension(oid);
+			}
+			return null;
+		}
+
+		public virtual IList GetExtensionOids()
+		{
+			return TspUtil.GetExtensionOids(extensions);
+		}
+
+		protected override X509Extensions GetX509Extensions()
+		{
+			return Extensions;
+		}
+	}
+}
