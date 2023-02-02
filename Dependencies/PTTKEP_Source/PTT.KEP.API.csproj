@@ -7,7 +7,7 @@
   <PropertyGroup>
     <LangVersion>4</LangVersion>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <BaseOutputPath>D:\Project Files\Gits\AesobKEP\_Build\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseOutputPath>$(SolutionDir)\_Build\$(MSBuildProjectName)\</BaseOutputPath>
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup />
