@@ -26,5 +26,5 @@
     <PackageReference Include="System.ServiceModel.Syndication" Version="7.0.0" />
     <PackageReference Include="System.ServiceModel.Web" Version="1.0.0" />
   </ItemGroup>
-
+  
 </Project>

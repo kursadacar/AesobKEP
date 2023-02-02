@@ -20,7 +20,7 @@ namespace Aesob.Web.Core.Internal.Configuration
 
         private void SetConfigsFromFiles(IEnumerable<IAesobService> services)
         {
-            var configs = XMLUtility.LoadAllDocumentsAtDirectory(DataPath.ConfigFolder);
+            var configs = XMLUtility.LoadAllDocumentsAtDirectory(DataPaths.ConfigFolder.ToString());
 
             Dictionary<string, IAesobService> serviceNames = new Dictionary<string, IAesobService>();
             foreach(var service in services)

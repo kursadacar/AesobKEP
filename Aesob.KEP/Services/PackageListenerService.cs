@@ -49,8 +49,6 @@ namespace Aesob.KEP.Services
                 string loginInfo = $"Giriş Deneniyor...";
                 Debug.Print(loginInfo);
 
-                //var regularLoginResult = _eYazisma.Giris(EYazismaGirisTur.OTP);
-
                 var regularLoginResult = _eYazisma.Giris(EYazismaGirisTur.OTP);
 
                 bool isSuccess = regularLoginResult?.Durum== "0";

@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Aesob.KEP", "Aesob.KEP\Aeso
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Aesob.Web.Core", "Aesob.Web.Core\Aesob.Web.Core.csproj", "{40AA3D4A-C385-4ABA-B614-9C5CA3545213}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aesob.Web.Data", "Aesob.Web.Data\Aesob.Web.Data.csproj", "{B4F0B023-6778-49D0-B885-21BB2D24044E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{40AA3D4A-C385-4ABA-B614-9C5CA3545213}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{40AA3D4A-C385-4ABA-B614-9C5CA3545213}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{40AA3D4A-C385-4ABA-B614-9C5CA3545213}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4F0B023-6778-49D0-B885-21BB2D24044E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4F0B023-6778-49D0-B885-21BB2D24044E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4F0B023-6778-49D0-B885-21BB2D24044E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4F0B023-6778-49D0-B885-21BB2D24044E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
