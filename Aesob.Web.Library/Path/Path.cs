@@ -44,9 +44,11 @@ namespace Aesob.Web.Library.Path
             return CreateFrom(this);
         }
 
-        public void Append(string segment)
+        public Path Append(string segment)
         {
             _segments.Add(segment);
+
+            return this;
         }
 
         public bool RemoveSegment(int index)

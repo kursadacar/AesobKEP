@@ -1,0 +1,6 @@
+<ServiceConfig ServiceName="EMailService">
+  <Parameters>
+    <Parameter Name="Username" Value="admin@aesob.org.tr" />
+    <Parameter Name="Password" Value="yF7_y1n917Bjx320?d" />
+  </Parameters>
+</ServiceConfig>

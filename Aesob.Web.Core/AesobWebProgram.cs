@@ -20,10 +20,7 @@ namespace Aesob.Web.Core
 
             _serviceManager.Start();
 
-            while (IsRunning)
-            {
-                await Task.Delay(10);
-            }
+            await _serviceManager.Update();
 
             _serviceManager.Stop();
         }

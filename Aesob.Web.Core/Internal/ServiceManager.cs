@@ -18,7 +18,6 @@ namespace Aesob.Web.Core.Internal
         private Dictionary<Type, IAesobService> _serviceInstances;
         private Dictionary<IAesobService, Dictionary<string, string>> _serviceConfigs;
         private DateTime _lastUpdateTime;
-        private Task _updateTask;
 
         private IAesobConfigurationManager _configurationManager;
         private IAesobServiceProvider _serviceProvider;
@@ -103,8 +102,6 @@ namespace Aesob.Web.Core.Internal
                 }
 
                 IsRunning = true;
-
-                _updateTask = Task.Run(Update);
             }
             catch (Exception e)
             {
@@ -112,7 +109,7 @@ namespace Aesob.Web.Core.Internal
             }
         }
 
-        private async Task Update()
+        internal async Task Update()
         {
             _lastUpdateTime = DateTime.Now;
 
@@ -139,8 +136,6 @@ namespace Aesob.Web.Core.Internal
             try
             {
                 IsRunning = false;
-
-                _updateTask.Wait();//Wait for updates to finish
 
                 foreach (var service in _serviceInstances)
                 {
