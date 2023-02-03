@@ -6,7 +6,6 @@ using System.Xml;
 using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
-using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
 using Microsoft.IdentityModel.Tokens;
 using Tr.Com.Eimza.EYazisma;
@@ -27,6 +26,8 @@ namespace KepStandalone
         private EYazismaApi _eYazisma;
         private DateTime _lastCheckedDate;
 
+        private List<string> _targetEmails = new List<string>();
+
         public PackageListenerService()
         {
             _httpClient = new HttpClient();
@@ -38,16 +39,25 @@ namespace KepStandalone
         {
             var configs = GetWebServiceConfigs();
 
-            var account = _thisAsInterface.GetConfig("Hesap");
-            var id = _thisAsInterface.GetConfig("TC");
-            var password = _thisAsInterface.GetConfig("Parola");
-            var passCode = _thisAsInterface.GetConfig("Sifre");
-            var endpointAddress = _thisAsInterface.GetConfig("EndPoint");
+            var account = _thisAsInterface.GetConfig("Hesap").Value;
+            var id = _thisAsInterface.GetConfig("TC").Value;
+            var password = _thisAsInterface.GetConfig("Parola").Value;
+            var passCode = _thisAsInterface.GetConfig("Sifre").Value;
+            var endpointAddress = _thisAsInterface.GetConfig("EndPoint").Value;
 
             _checkIntervalInSeconds = 60f;
-            if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval"), out var checkInterval))
+            if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval").Value, out var checkInterval))
             {
                 _checkIntervalInSeconds = checkInterval;
+            }
+
+            var targetEmailsConfig = _thisAsInterface.GetConfig("TargetEmails");
+            if(targetEmailsConfig != null && !targetEmailsConfig.IsEmpty)
+            {
+                foreach (var targetEmailConfig in targetEmailsConfig.SubConfigs)
+                {
+                    _targetEmails.Add(targetEmailConfig.Value);
+                }
             }
 
             Debug.Print("Paket Tarama Aralığı: " + new TimeSpan(0, 0, (int)_checkIntervalInSeconds));
@@ -228,15 +238,6 @@ namespace KepStandalone
 
         private void MailPackageToReceivers(PackageMailContent downloadedPackage)
         {
-            var targetAddresses = new string[]
-            {
-                "kursad.fb.96@hotmail.com",
-                "fatihh@msn.com",
-                "yaziisleri@aesob.org.tr",
-                "aesobmuhasebe@gmail.com",
-                "adlihandere@hotmail.com",
-            };
-
             string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789",
                 "Kep Yönlendirme",
                 downloadedPackage.Subject,
@@ -246,7 +247,7 @@ namespace KepStandalone
                 downloadedPackage.To,
                 downloadedPackage.Cc,
                 downloadedPackage.Bcc,
-                targetAddresses);
+                _targetEmails.ToArray());
 
             var encodedString = Base64UrlEncoder.Encode(mailXML);
 

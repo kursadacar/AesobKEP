@@ -1,4 +1,5 @@
-﻿using Aesob.Web.Library;
+﻿using Aesob.Web.Core.Internal.Services;
+using Aesob.Web.Library;
 using Aesob.Web.Library.Configuration;
 using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
@@ -9,10 +10,6 @@ namespace Aesob.Web.Core.Internal.Configuration
 {
     internal class AesobConfigurationManager : IAesobConfigurationManager
     {
-        private const string _rootNodeName = "ServiceConfig";
-        private const string _parameterNodeParentName = "Parameters";
-        private const string _parameterNodeName = "Parameter";
-
         void IAesobConfigurationManager.ConfigureServices(IEnumerable<IAesobService> services)
         {
             SetConfigsFromFiles(services);
@@ -38,9 +35,9 @@ namespace Aesob.Web.Core.Internal.Configuration
                     continue;
                 }
 
-                if(config.FirstChild.Name != _rootNodeName)
+                if(config.FirstChild.Name != "ServiceConfig")
                 {
-                    Debug.FailedAssert($"Config file does not have root element: {_rootNodeName}");
+                    Debug.FailedAssert($"Config file does not have root element: \"ServiceConfig\"");
                     continue;
                 }
 
@@ -57,36 +54,72 @@ namespace Aesob.Web.Core.Internal.Configuration
 
         private void SetConfigsFromDocument(IAesobService service, XmlNode document)
         {
-            XmlNode parametersParentNode = null;
+            XmlNode parametersParentNode = FindElementWithId(document, "Parameters");
 
-            for(int i = 0; i < document.ChildNodes.Count; i++)
+            if(parametersParentNode != null)
+            {
+                var configs = GetConfigsFromNode(parametersParentNode);
+                foreach(var config in configs)
+                {
+                    ServiceManager.Instance.SetServiceConfig(service, config.Name, config);
+                }
+            }
+        }
+
+        private static XmlElement FindElementWithId(XmlNode document, string id)
+        {
+            XmlElement element = null;
+
+            for (int i = 0; i < document.ChildNodes.Count; i++)
             {
                 var item = document.ChildNodes.Item(i);
 
-                if(item.Name == _parameterNodeParentName)
+                if (item.Name == id && item is XmlElement elementItem)
                 {
-                    parametersParentNode = item;
+                    element = elementItem;
                     break;
                 }
             }
 
-            if(parametersParentNode == null)
-            {
-                Debug.FailedAssert($"No {_parameterNodeParentName} node in config file: {document.Name}");
-                return;
-            }
+            return element;
+        }
 
-            for(int i = 0; i < parametersParentNode.ChildNodes.Count; i++)
+        private List<IServiceConfig> GetConfigsFromNode(XmlNode parentNode)
+        {
+            List<IServiceConfig> configs = new List<IServiceConfig>();
+
+            for (int i = 0; i < parentNode.ChildNodes.Count; i++)
             {
-                var parameterNode = parametersParentNode.ChildNodes.Item(i);
-                if(parameterNode.Name != _parameterNodeName)
+                var parameterNode = parentNode.ChildNodes.Item(i);
+                ServiceConfig config = null;
+
+                if (parameterNode.Name == "Parameter")
                 {
-                    Debug.FailedAssert($"Parameters node should only contain {_parameterNodeName} node in config file: {_parameterNodeParentName}");
-                    continue;
+                    config = new ServiceConfig(parameterNode.Attributes["Name"].Value, parameterNode.Attributes["Value"].Value);
+                }
+                else if(parameterNode.Name == "ListParameter")
+                {
+                    config = new ServiceConfig(parameterNode.Attributes["Name"].Value, string.Empty);
+                }
+                else if(parameterNode.Name == "SubParameter")
+                {
+                    config = new ServiceConfig(string.Empty, parameterNode.Attributes["Value"].Value);
                 }
 
-                ServiceManager.Instance.SetServiceConfig(service, parameterNode.Attributes["Name"].InnerText, parameterNode.Attributes["Value"].InnerText);
+                configs.Add(config);
+
+                if (config != null && parameterNode.ChildNodes.Count > 0)
+                {
+                    var subConfigs = GetConfigsFromNode(parameterNode);
+
+                    foreach (var subConfig in subConfigs)
+                    {
+                        config.AddSubConfig(subConfig);
+                    }
+                }
             }
+
+            return configs;
         }
     }
 }

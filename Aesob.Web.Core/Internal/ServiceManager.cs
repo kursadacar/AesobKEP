@@ -16,7 +16,7 @@ namespace Aesob.Web.Core.Internal
         internal static ServiceManager Instance { get; private set; }
 
         private Dictionary<Type, IAesobService> _serviceInstances;
-        private Dictionary<IAesobService, Dictionary<string, string>> _serviceConfigs;
+        private Dictionary<IAesobService, Dictionary<string, IServiceConfig>> _serviceConfigs;
         private DateTime _lastUpdateTime;
 
         private IAesobConfigurationManager _configurationManager;
@@ -25,7 +25,7 @@ namespace Aesob.Web.Core.Internal
         internal ServiceManager()
         {
             _serviceInstances = new Dictionary<Type, IAesobService>();
-            _serviceConfigs = new Dictionary<IAesobService, Dictionary<string, string>>();
+            _serviceConfigs = new Dictionary<IAesobService, Dictionary<string, IServiceConfig>>();
 
             Instance = this;
         }
@@ -40,7 +40,7 @@ namespace Aesob.Web.Core.Internal
             return null;
         }
 
-        internal void SetServiceConfig(IAesobService service, string key, string value)
+        internal void SetServiceConfig(IAesobService service, string key, IServiceConfig value)
         {
             if(_serviceConfigs.TryGetValue(service, out var config))
             {
@@ -52,7 +52,7 @@ namespace Aesob.Web.Core.Internal
             }
         }
 
-        internal string GetServiceConfig(IAesobService service, string key)
+        internal IServiceConfig GetServiceConfig(IAesobService service, string key)
         {
             if(_serviceConfigs.TryGetValue(service, out var config))
             {
@@ -70,7 +70,7 @@ namespace Aesob.Web.Core.Internal
                 Debug.FailedAssert($"Could not find service in config dictionary: {service.GetType().Name}");
             }
 
-            return string.Empty;
+            return ServiceConfig.Empty;
         }
 
         internal void Start()
@@ -90,7 +90,7 @@ namespace Aesob.Web.Core.Internal
 
                 foreach(var serviceKvp in _serviceInstances)
                 {
-                    _serviceConfigs.Add(serviceKvp.Value, new Dictionary<string, string>());
+                    _serviceConfigs.Add(serviceKvp.Value, new Dictionary<string, IServiceConfig>());
                 }
 
                 ConfigureServices(_serviceInstances.Values.ToList());

@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Mail;
+﻿using System.Net.Mail;
 using System.Net;
 using System.Text;
-using System.Threading.Tasks;
 using Aesob.Web.Library.Service;
-using System.Net.WebSockets;
 using Aesob.Web.Library;
 
 namespace Aesob.Web.Core.Public
@@ -25,9 +20,9 @@ namespace Aesob.Web.Core.Public
         {
             var thisAsInterface = (IAesobService)this;
 
-            _userName = thisAsInterface.GetConfig("Username");
-            _password = thisAsInterface.GetConfig("Password");
-            _server = thisAsInterface.GetConfig("Server");
+            _userName = thisAsInterface.GetConfig("Username").Value;
+            _password = thisAsInterface.GetConfig("Password").Value;
+            _server = thisAsInterface.GetConfig("Server").Value;
         }
 
         void IAesobService.Update(float dt)

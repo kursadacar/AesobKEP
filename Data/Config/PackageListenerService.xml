@@ -6,5 +6,12 @@
     <Parameter Name="Sifre" Value="Aesob123456" />
     <Parameter Name="EndPoint" Value="https://ws.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php" />
     <Parameter Name="PackageCheckInterval" Value="60" />
+    <ListParameter Name="TargetEmails">
+		<SubParameter Value="kursad.fb.96@hotmail.com" />
+		<SubParameter Value="fatihh@msn.com" />
+		<SubParameter Value="yaziisleri@aesob.org.tr" />
+		<SubParameter Value="aesobmuhasebe@gmail.com" />
+		<SubParameter Value="adlihandere@hotmail.com" />
+	</ListParameter>
   </Parameters>
 </ServiceConfig>
