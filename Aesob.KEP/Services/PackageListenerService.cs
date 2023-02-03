@@ -2,11 +2,11 @@
 using System.Net.Http.Json;
 using System.ServiceModel;
 using System.Text;
-using System.Text.Json;
 using System.Xml;
-using Aesob.KEP.Model;
+using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
+using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
 using Microsoft.IdentityModel.Tokens;
 using Tr.Com.Eimza.EYazisma;
@@ -25,11 +25,13 @@ namespace KepStandalone
 
         private HttpClient _httpClient;
         private EYazismaApi _eYazisma;
+        private DateTime _lastCheckedDate;
 
         public PackageListenerService()
         {
             _httpClient = new HttpClient();
             _thisAsInterface = this;
+            _lastCheckedDate = DateTime.Now;
         }
 
         void IAesobService.Start()
@@ -132,16 +134,16 @@ namespace KepStandalone
             }
         }
 
-        private List<PackageDownloadResult> CheckForPackages()
+        private List<PackageMailContent> CheckForPackages()
         {
             Debug.Print("Checking for packages...");
 
-            List<PackageDownloadResult> downloadResults = new List<PackageDownloadResult>();
-
             var curDate = DateTime.Now;
 
-            //var package = CreateTestResult();
-            var foundPackagesData = _eYazisma.PaketSorgula(curDate.AddSeconds(-_checkInterval), curDate);
+            var packages = new List<PackageMailContent>();
+
+            var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
+            _lastCheckedDate = curDate;
 
             if (foundPackagesData == null || foundPackagesData.Durum[0] != 0)
             {
@@ -156,52 +158,94 @@ namespace KepStandalone
             }
             else
             {
-                var packageResults = PackageData.CreateFrom(foundPackagesData);
-                foreach(var result in packageResults)
+                foreach(var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
-                    if(result.KepSiraNo != null)
+                    var siraNo = kepSiraNo ?? -1;
+
+                    var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
+
+                    packages = GetPackagesFrom(downloadResult);
+                }
+            }
+
+            return packages;
+        }
+
+        private List<PackageMailContent> GetPackagesFrom(EyPaketIndirSonuc downloadResult)
+        {
+            List<PackageMailContent> packages = new List<PackageMailContent>();
+
+            if (downloadResult?.EyazismaPaketi != null)
+            {
+                foreach (var mailPckg in downloadResult.EyazismaPaketi)
+                {
+                    var base64 = Convert.ToBase64String(mailPckg.Value);
+                    var smime = _eYazisma.SmimeParcala(base64);
+
+                    foreach(var mimeAttachment in smime.Ekler)
                     {
-                        int siraNo = result.KepSiraNo ?? 0;
+                        var mimeValue = _eYazisma.SmimeParcala(Convert.ToBase64String(mimeAttachment.Degeri));
 
-                        var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
+                        if(mimeValue != null && mimeValue.Durum == 0)
+                        {
+                            var mailContent = new PackageMailContent()
+                            {
+                                Cc = mimeValue.Cc,
+                                Bcc = mimeValue.Bcc,
+                                Attachments = MailAttachment.FromMultipleEk(mimeValue.Ekler),
+                                Content = mimeValue.Icerik,
+                                From = mimeValue.Kimden,
+                                To = mimeValue.Kime,
+                                ImzaP7s = MailAttachment.FromEk(mimeValue.ImzaP7s),
+                                MailType = mimeValue.MailTipi,
+                                MailTypeId = mimeValue.MailTipId,
+                                Subject = mimeValue.Konu
+                            };
 
-                        downloadResults.Add(PackageDownloadResult.CreateFrom(downloadResult, result));
+                            packages.Add(mailContent);
+                        }
                     }
                 }
             }
 
-            return downloadResults;
+            return packages;
         }
 
-        private void AddPackageToEDYS(PackageDownloadResult packageData)
+        private void AddPackageToEDYS(PackageMailContent packageData)
         {
             Debug.Print("Adding package to EDYS");
 
             //TODO_Kursad: Add packages
         }
 
-        private void MailPackageToReceivers(PackageDownloadResult downloadedPackage)
+        private void MailPackageToReceivers(PackageMailContent downloadedPackage)
         {
-            PackageData packageData = downloadedPackage.OriginalPackage;
-            string subject = packageData.Konu;
-            string content = "Bulunan içerik sayısı: " + downloadedPackage.EyazismaPaketi.Length.ToString();
-
             var targetAddresses = new string[]
             {
                 "kursad.fb.96@hotmail.com",
-                //"fatihh@msn.com",
-                //"yaziisleri@aesob.org.tr",
-                //"aesobmuhasebe@gmail.com",
-                //"adlihandere@hotmail.com",
+                "fatihh@msn.com",
+                "yaziisleri@aesob.org.tr",
+                "aesobmuhasebe@gmail.com",
+                "adlihandere@hotmail.com",
             };
 
-            string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789", "Kep Yönlendirme", subject, content, targetAddresses);
+            string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789",
+                "Kep Yönlendirme",
+                downloadedPackage.Subject,
+                downloadedPackage.Content,
+                downloadedPackage.Attachments,
+                downloadedPackage.From,
+                downloadedPackage.To,
+                downloadedPackage.Cc,
+                downloadedPackage.Bcc,
+                targetAddresses);
 
             var encodedString = Base64UrlEncoder.Encode(mailXML);
 
             var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
 
-            var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
+            //var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
+            var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
             postTask.Wait();
             var postResult = postTask.Result;
 
@@ -226,7 +270,21 @@ namespace KepStandalone
             };
         }
 
-        private string GetXMLStringFromMailData(string authKeyword, string senderAlias, string subject, string content, string[] targetAddresses)
+        private EyPaketIndirSonuc CreateTestPackage()
+        {
+            var api = _eYazisma;
+
+            EyPaketIndirSonuc indirSonuc = api.PaketIndir("<64964.1085840022.37.1639395387226.e8866ba0-5c08-11ec-aae7-e1b7dd8706e4.pttkepmail@hs01.kep.tr>", null,  EYazismaPart.ALL);
+
+            if(indirSonuc != null && indirSonuc.EyazismaPaketi.Length > 0)
+            {
+                return indirSonuc;
+            }
+
+            return null;
+        }
+
+        private string GetXMLStringFromMailData(string authKeyword, string senderAlias, string subject, string content, List<MailAttachment> attachments, string from, List<string> to, List<string> cc, List<string> bcc, string[] targetAddresses)
         {
             XmlDocument document = new XmlDocument();
 
@@ -248,10 +306,78 @@ namespace KepStandalone
             var senderAliasNode = rootNode.AppendChild(document.CreateElement("SenderAlias"));
             senderAliasNode.InnerText = senderAlias;
 
+            var attachmentsNode = rootNode.AppendChild(document.CreateElement("Attachments"));
+            foreach(var attachment in attachments)
+            {
+                var attachementNode = attachmentsNode.AppendChild(document.CreateElement("Attachment")) as XmlElement;
+                attachementNode.SetAttribute("Name", attachment.Name);
+                attachementNode.InnerText = Base64UrlEncoder.Encode(attachment.Value);
+            }
+
             var contentNode = rootNode.AppendChild(document.CreateElement("Content"));
-            contentNode.InnerText = content;
+            contentNode.InnerText = CreateContentFrom(from, to, cc, bcc, content);
 
             return document.InnerXml;
+        }
+
+        private string CreateContentFrom(string from, List<string> to, List<string> cc, List<string> bcc, string originalContent)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendLine(originalContent);
+
+            sb.AppendLine();
+            sb.AppendLine();
+
+            sb.AppendLine("Kimden: " + from);
+            sb.AppendLine();
+
+            if(to.Count > 0)
+            {
+                sb.AppendLine("Kime: ");
+
+                foreach(var _to in to)
+                {
+                    sb.Append(_to);
+                    sb.Append(';');
+                }
+
+                sb.Remove(sb.Length - 1, 1);
+            }
+
+            sb.AppendLine();
+
+            if (cc.Count > 0)
+            {
+                sb.AppendLine("CC: ");
+
+                foreach (var c in cc)
+                {
+                    sb.Append(c);
+                    sb.Append(';');
+                }
+
+                sb.Remove(sb.Length - 1, 1);
+            }
+            sb.AppendLine();
+
+            if (bcc.Count > 0)
+            {
+                sb.AppendLine("Bcc: ");
+
+                foreach (var _bcc in bcc)
+                {
+                    sb.Append(_bcc);
+                    sb.Append(';');
+                }
+
+                sb.Remove(sb.Length - 1, 1);
+            }
+
+            sb.AppendLine();
+            sb.AppendLine();
+
+            return sb.ToString();
         }
 
         private BasicHttpBinding GetWebServiceConfigs()
