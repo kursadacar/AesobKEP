@@ -19,6 +19,7 @@ namespace Aesob.Web.Core.Public
 
         private string _userName;
         private string _password;
+        private string _server;
 
         void IAesobService.Start()
         {
@@ -26,6 +27,7 @@ namespace Aesob.Web.Core.Public
 
             _userName = thisAsInterface.GetConfig("Username");
             _password = thisAsInterface.GetConfig("Password");
+            _server = thisAsInterface.GetConfig("Server");
         }
 
         void IAesobService.Update(float dt)
@@ -61,9 +63,8 @@ namespace Aesob.Web.Core.Public
                 mailMessage.IsBodyHtml = true;
                 mailMessage.Body = mailData.Content;
 
-                SmtpClient smtpClient = new SmtpClient("srvm11.trwww.com");
+                SmtpClient smtpClient = new SmtpClient(_server);
                 smtpClient.Port = 587;
-                //smtpClient.UseDefaultCredentials = true;
                 smtpClient.EnableSsl = true;
                 smtpClient.Credentials = new NetworkCredential()
                 {

@@ -1,6 +1,7 @@
 <ServiceConfig ServiceName="EMailService">
   <Parameters>
-    <Parameter Name="Username" Value="admin@aesob.org.tr" />
-    <Parameter Name="Password" Value="yF7_y1n917Bjx320?d" />
+    <Parameter Name="Username" Value="kursad_fb_96@hotmail.com" />
+    <Parameter Name="Password" Value="kursad123" />
+    <Parameter Name="Server" Value="smtp.office365.com" />
   </Parameters>
 </ServiceConfig>

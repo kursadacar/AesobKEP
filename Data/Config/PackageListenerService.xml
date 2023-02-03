@@ -4,5 +4,6 @@
     <Parameter Name="TC" Value="33727133874" />
     <Parameter Name="Parola" Value="357916284" />
     <Parameter Name="Sifre" Value="Aesob123456" />
+    <Parameter Name="EndPoint" Value="https://ws.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php" />
   </Parameters>
 </ServiceConfig>

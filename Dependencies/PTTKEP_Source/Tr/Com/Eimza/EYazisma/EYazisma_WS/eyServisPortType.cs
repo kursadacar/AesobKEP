@@ -4,7 +4,7 @@ using System.ServiceModel;
 namespace Tr.Com.Eimza.EYazisma.EYazisma_WS
 {
 	[GeneratedCode("System.ServiceModel", "4.0.0.0")]
-	[ServiceContract(Namespace = "http://ws.apache.org/axis2", ConfigurationName = "EYazisma_WS.eyServisPortType")]
+	[ServiceContract(Namespace = "http://ws.apache.org/axis2", ConfigurationName = "EYazisma_WS.eyServisPortType", Name = "eyServisSOAPport_http")]
 	public interface eyServisPortType
 	{
 		[OperationContract(Action = "urn:Yukle", ReplyAction = "urn:YukleResponse")]

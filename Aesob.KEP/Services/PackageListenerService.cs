@@ -1,18 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Net.WebSockets;
 using System.ServiceModel;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using System.Text;
+using System.Text.Json;
 using System.Xml;
 using Aesob.KEP.Model;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
 using Aesob.Web.Library.Service;
+using Microsoft.IdentityModel.Tokens;
 using Tr.Com.Eimza.EYazisma;
 
-namespace Aesob.KEP.Services
+namespace KepStandalone
 {
     public class PackageListenerService : IAesobService
     {
@@ -25,14 +24,12 @@ namespace Aesob.KEP.Services
         private float _checkTimer;
 
         private HttpClient _httpClient;
-        private EMailService _emailService;
         private EYazismaApi _eYazisma;
 
-        public PackageListenerService(EMailService emailService)
+        public PackageListenerService()
         {
             _httpClient = new HttpClient();
             _thisAsInterface = this;
-            _emailService = emailService;
         }
 
         void IAesobService.Start()
@@ -43,8 +40,9 @@ namespace Aesob.KEP.Services
             var id = _thisAsInterface.GetConfig("TC");
             var password = _thisAsInterface.GetConfig("Parola");
             var passCode = _thisAsInterface.GetConfig("Sifre");
+            var endpointAddress = _thisAsInterface.GetConfig("EndPoint");
 
-            _eYazisma = new EYazismaApi(account, id, password, passCode, configs);
+            _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
             _isLoggedIn = true;
             //var loginTask = TryLogin();
@@ -134,65 +132,84 @@ namespace Aesob.KEP.Services
             }
         }
 
-        private List<PackageData> CheckForPackages()
+        private List<PackageDownloadResult> CheckForPackages()
         {
             Debug.Print("Checking for packages...");
 
+            List<PackageDownloadResult> downloadResults = new List<PackageDownloadResult>();
+
             var curDate = DateTime.Now;
 
-            //var package = _eYazisma.PaketSorgula(curDate.AddMinutes(-_checkInterval), curDate, "Inbox");
-            var package = CreateTestResult();
+            //var package = CreateTestResult();
+            var foundPackagesData = _eYazisma.PaketSorgula(curDate.AddSeconds(-_checkInterval), curDate);
 
-            if (package == null || (package.Durum.Length == 1 && package.HataAciklama.Length == 1 && package.Durum[0] != 0))
+            if (foundPackagesData == null || foundPackagesData.Durum[0] != 0)
             {
-                Debug.Print("Error while getting packages: " + package?.HataAciklama[0] ?? "Package is null");
+                if (foundPackagesData?.Durum[0] == -1)
+                {
+                    Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
+                }
+                else
+                {
+                    Debug.Print("Error while getting packages: " + foundPackagesData?.HataAciklama[0] ?? "Package data is null");
+                }
+            }
+            else
+            {
+                var packageResults = PackageData.CreateFrom(foundPackagesData);
+                foreach(var result in packageResults)
+                {
+                    if(result.KepSiraNo != null)
+                    {
+                        int siraNo = result.KepSiraNo ?? 0;
+
+                        var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
+
+                        downloadResults.Add(PackageDownloadResult.CreateFrom(downloadResult, result));
+                    }
+                }
             }
 
-            return PackageData.CreateFrom(package);
+            return downloadResults;
         }
 
-        private void AddPackageToEDYS(PackageData packageData)
+        private void AddPackageToEDYS(PackageDownloadResult packageData)
         {
             Debug.Print("Adding package to EDYS");
 
             //TODO_Kursad: Add packages
         }
 
-        private void MailPackageToReceivers(PackageData packageData)
+        private void MailPackageToReceivers(PackageDownloadResult downloadedPackage)
         {
+            PackageData packageData = downloadedPackage.OriginalPackage;
             string subject = packageData.Konu;
-            string content = packageData.Konu;
-
-            //var mailData = new EMailService.MailData("Yeni KEP Mesajı", subject, content, new string[]
-            //{
-            //    //"yaziisleri@aesob.org.tr",
-            //    //"aesobmuhasebe@gmail.com",
-            //    //"adlihandere@hotmail.com",
-            //});
-            //_emailService.SendMail(mailData);
+            string content = "Bulunan içerik sayısı: " + downloadedPackage.EyazismaPaketi.Length.ToString();
 
             var targetAddresses = new string[]
             {
-                "kursadacarr@hotmail.com",
                 "kursad.fb.96@hotmail.com",
-                "fatihh@msn.com"
+                //"fatihh@msn.com",
+                //"yaziisleri@aesob.org.tr",
+                //"aesobmuhasebe@gmail.com",
+                //"adlihandere@hotmail.com",
             };
 
-            string mailXML = GetXMLStringFromMailData("Kep Yönlendirme", subject, content, targetAddresses);
+            string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789", "Kep Yönlendirme", subject, content, targetAddresses);
 
-            var httpContent = new FormUrlEncodedContent(new Dictionary<string, string>()
-            {
-                {"ver", "AesobEmailEncryiptionProtocol123456789!*"},
-                {"mail", mailXML }
-            });
+            var encodedString = Base64UrlEncoder.Encode(mailXML);
 
-            var postTask = _httpClient.PostAsync("https://aesob.org.tr/Index?handler=RedirectEMail", httpContent);
+            var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
+
+            var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
             postTask.Wait();
             var postResult = postTask.Result;
 
             var resultStream = postResult.Content.ReadAsStringAsync().Result;
+            Debug.Print("EMail Yönlendirme Sonucu: " + resultStream);
         }
 
+        //REMARK_Kursad: This is for debug purposes only
         private EyPaketSonuc CreateTestResult()
         {
             return new EyPaketSonuc()
@@ -209,11 +226,14 @@ namespace Aesob.KEP.Services
             };
         }
 
-        private string GetXMLStringFromMailData(string senderAlias, string subject, string content, string[] targetAddresses)
+        private string GetXMLStringFromMailData(string authKeyword, string senderAlias, string subject, string content, string[] targetAddresses)
         {
             XmlDocument document = new XmlDocument();
 
             var rootNode = document.AppendChild(document.CreateElement("EmailData"));
+
+            var authNode = rootNode.AppendChild(document.CreateElement("Auth"));
+            authNode.InnerText = authKeyword;
 
             var targetEmailsNode = rootNode.AppendChild(document.CreateElement("TargetEmails"));
             foreach(var targetAddr in targetAddresses)
@@ -242,7 +262,7 @@ namespace Aesob.KEP.Services
             basicHttpBinding.OpenTimeout = new TimeSpan(0, 10, 0);
             basicHttpBinding.ReceiveTimeout = new TimeSpan(0, 10, 0);
             basicHttpBinding.SendTimeout = new TimeSpan(0, 10, 0);
-            basicHttpBinding.AllowCookies = true;
+            basicHttpBinding.AllowCookies = false;
             basicHttpBinding.BypassProxyOnLocal = true;
             basicHttpBinding.MaxBufferPoolSize = 33554432;
             basicHttpBinding.MaxReceivedMessageSize = 33554432;
@@ -252,12 +272,13 @@ namespace Aesob.KEP.Services
 
             XmlDictionaryReaderQuotas readerQuotas = new XmlDictionaryReaderQuotas();
             readerQuotas.MaxDepth = 32;
-            readerQuotas.MaxStringContentLength = 33554432;
+            readerQuotas.MaxStringContentLength = 41943040;
             readerQuotas.MaxArrayLength = 16384;
             readerQuotas.MaxBytesPerRead = 4096;
             readerQuotas.MaxNameTableCharCount = 16384;
 
             basicHttpBinding.ReaderQuotas = readerQuotas;
+            basicHttpBinding.Security.Mode = BasicHttpSecurityMode.Transport;
 
             return basicHttpBinding;
         }

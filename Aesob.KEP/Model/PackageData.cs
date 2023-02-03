@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
 using Tr.Com.Eimza.EYazisma;
-//using Tr.Com.Eimza.EYazisma;
 
-namespace Aesob.KEP.Model
+namespace KepStandalone
 {
     public class PackageData
     {
