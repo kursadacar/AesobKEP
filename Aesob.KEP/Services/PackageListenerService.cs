@@ -16,7 +16,7 @@ namespace KepStandalone
     public class PackageListenerService : IAesobService
     {
         private const float _loginTrialInterval = 5f;
-        private const float _checkInterval = 10f;//Check every 10 seconds
+        private float _checkIntervalInSeconds = 10f;//Check every 10 seconds
 
         private IAesobService _thisAsInterface;
 
@@ -44,12 +44,20 @@ namespace KepStandalone
             var passCode = _thisAsInterface.GetConfig("Sifre");
             var endpointAddress = _thisAsInterface.GetConfig("EndPoint");
 
+            _checkIntervalInSeconds = 60f;
+            if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval"), out var checkInterval))
+            {
+                _checkIntervalInSeconds = checkInterval;
+            }
+
+            Debug.Print("Paket Tarama Aralığı: " + new TimeSpan(0, 0, (int)_checkIntervalInSeconds));
+
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
             _isLoggedIn = true;
             //var loginTask = TryLogin();
 
-            _checkTimer = _checkInterval;
+            _checkTimer = 0;
         }
 
         void IAesobService.Update(float dt)
@@ -70,7 +78,7 @@ namespace KepStandalone
         {
             _checkTimer += dt;
 
-            if (_checkTimer > _checkInterval)
+            if (_checkTimer > _checkIntervalInSeconds)
             {
                 TryRegisterNewPackages();
                 _checkTimer = 0f;
@@ -136,11 +144,11 @@ namespace KepStandalone
 
         private List<PackageMailContent> CheckForPackages()
         {
-            Debug.Print("Checking for packages...");
-
             var curDate = DateTime.Now;
 
             var packages = new List<PackageMailContent>();
+
+            Debug.Print($"Paketler Taranıyor: {_lastCheckedDate:dd/MM/yyyy HH:mm:ss}  -  {curDate:dd/MM/yyyy HH:mm:ss}");
 
             var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
             _lastCheckedDate = curDate;
@@ -244,8 +252,8 @@ namespace KepStandalone
 
             var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
 
-            //var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
-            var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
+            var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
+            //var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
             postTask.Wait();
             var postResult = postTask.Result;
 
