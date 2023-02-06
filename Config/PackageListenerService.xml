@@ -5,7 +5,7 @@
     <Parameter Name="Parola" Value="465728" />
     <Parameter Name="Sifre" Value="mPwUA2" />
     <Parameter Name="EndPoint" Value="https://ws.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php" />
-    <Parameter Name="PackageCheckInterval" Value="60" />
+    <Parameter Name="PackageCheckInterval" Value="300" />
     <ListParameter Name="TargetEmails">
 		<SubParameter Value="kursad.fb.96@hotmail.com" />
 		<SubParameter Value="fatihh@msn.com" />

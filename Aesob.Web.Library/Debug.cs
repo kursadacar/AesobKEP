@@ -29,11 +29,8 @@ namespace Aesob.Web.Library
 
         public static void Print(string message)
         {
-#if DEBUG
             Console.WriteLine(DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true));
-
             Log(message);
-#endif
         }
 
         public static void Initialize(DateTime applicationStartDate)
