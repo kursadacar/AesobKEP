@@ -8,6 +8,8 @@ namespace Aesob.KEP.Services
 
         public MailAttachment ImzaP7s { get; set; }
 
+        public string KepSıraNo { get; set; }
+
         public string Subject { get; set; }
 
         public string Content { get; set; }

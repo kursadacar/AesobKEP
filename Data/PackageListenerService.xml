@@ -1,0 +1,11 @@
+<ServiceData ServiceName="PackageListenerService">
+  <DataCollection>
+    <Data Name="RedirectedKepEmails" Value="">
+      <Data Name="RedirectedKepMail" Value="1147" />
+      <Data Name="RedirectedKepMail" Value="1148" />
+      <Data Name="RedirectedKepMail" Value="1149" />
+      <Data Name="RedirectedKepMail" Value="1150" />
+      <Data Name="RedirectedKepMail" Value="1151" />
+    </Data>
+  </DataCollection>
+</ServiceData>

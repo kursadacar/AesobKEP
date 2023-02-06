@@ -61,17 +61,13 @@ namespace Aesob.Web.Core.Internal.Services
                 {
                     return value;
                 }
-                else
-                {
-                    Debug.FailedAssert($"Could not find data parameter: {key} in config for: {service.GetType().Name}");
-                }
             }
             else
             {
                 Debug.FailedAssert($"Could not find service in data dictionary: {service.GetType().Name}");
             }
 
-            return ServiceData.Empty;
+            return null;
         }
 
         internal static void SetServiceData(IAesobService service, string key, IServiceData value)

@@ -24,15 +24,15 @@ namespace KepStandalone
 
         private HttpClient _httpClient;
         private EYazismaApi _eYazisma;
-        private DateTime _lastCheckedDate;
 
         private List<string> _targetEmails = new List<string>();
+
+        private IServiceData _redirectedMailsData;
 
         public PackageListenerService()
         {
             _httpClient = new HttpClient();
             _thisAsInterface = this;
-            _lastCheckedDate = DateTime.Now;
         }
 
         void IAesobService.Start()
@@ -49,6 +49,12 @@ namespace KepStandalone
             if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval").Value, out var checkInterval))
             {
                 _checkIntervalInSeconds = checkInterval;
+            }
+
+            _redirectedMailsData = _thisAsInterface.GetData("RedirectedKepEmails");
+            if(_redirectedMailsData == null)
+            {
+                _redirectedMailsData = _thisAsInterface.CreateAndRegisterServiceData("RedirectedKepEmails", string.Empty);
             }
 
             var targetEmailsConfig = _thisAsInterface.GetConfig("TargetEmails");
@@ -107,15 +113,15 @@ namespace KepStandalone
 
         private List<PackageMailContent> CheckForPackages()
         {
-            var curDate = DateTime.Now;
+            var beginDate = DateTime.Now;
+            var endDate = beginDate.AddDays(1);
 
             var packages = new List<PackageMailContent>();
 
-            Debug.Print($"Paketler Taranıyor: {_lastCheckedDate:dd/MM/yyyy HH:mm:ss}  -  {curDate:dd/MM/yyyy HH:mm:ss}");
+            Debug.Print($"Paketler Taranıyor: {beginDate:dd/MM/yyyy}  -  {endDate:dd/MM/yyyy}");
 
-            var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
-            //var foundPackagesData = _eYazisma.PaketSorgula(curDate.AddDays(-3), curDate);
-            _lastCheckedDate = curDate;
+            //var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
+            var foundPackagesData = _eYazisma.PaketSorgula(beginDate, endDate);
 
             if (foundPackagesData == null)
             {
@@ -123,24 +129,38 @@ namespace KepStandalone
             }
             else if (foundPackagesData.Durum[0] != 0)
             {
-                _lastCheckedDate = curDate;
                 Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
             }
             else
             {
-                _lastCheckedDate = curDate;
-
                 foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
                     var siraNo = kepSiraNo ?? -1;
 
-                    var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
+                    try
+                    {
+                        var sentMailsLookup = _redirectedMailsData.SubData.Select(s => s.Value);
+                        var siraNoString = siraNo.ToString();
 
-                    var package = GetPackagesFrom(downloadResult);
+                        if (!sentMailsLookup.Contains(siraNoString))
+                        {
+                            var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
+                            var package = GetPackagesFrom(downloadResult);
+                            package.ForEach(p => p.KepSıraNo = siraNoString);
 
-                    packages.AddRange(package);
+                            packages.AddRange(package);
+
+                            _redirectedMailsData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", siraNoString));
+                        }
+                    }
+                    catch
+                    {
+
+                    }
                 }
             }
+
+            _thisAsInterface.SaveData();
 
             return packages;
         }
@@ -246,13 +266,7 @@ namespace KepStandalone
         {
             string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789",
                 "Kep Yönlendirme",
-                downloadedPackage.Subject,
-                downloadedPackage.Content,
-                downloadedPackage.Attachments,
-                downloadedPackage.From,
-                downloadedPackage.To,
-                downloadedPackage.Cc,
-                downloadedPackage.Bcc,
+                downloadedPackage,
                 _targetEmails.ToArray());
 
             var encodedString = Base64UrlEncoder.Encode(mailXML);
@@ -299,9 +313,18 @@ namespace KepStandalone
             return null;
         }
 
-        private string GetXMLStringFromMailData(string authKeyword, string senderAlias, string subject, string content, List<MailAttachment> attachments, string from, List<string> to, List<string> cc, List<string> bcc, string[] targetAddresses)
+        private string GetXMLStringFromMailData(string authKeyword, string senderAlias, PackageMailContent mailContent, string[] targetAddresses)
         {
             XmlDocument document = new XmlDocument();
+
+            var subject = mailContent.Subject;
+            var content = mailContent.Content;
+            var attachments = mailContent.Attachments;
+            var from = mailContent.From;
+            var to = mailContent.To;
+            var cc = mailContent.Cc;
+            var bcc = mailContent.Bcc;
+            var mailId = mailContent.KepSıraNo;
 
             var rootNode = document.AppendChild(document.CreateElement("EmailData"));
 
@@ -330,12 +353,12 @@ namespace KepStandalone
             }
 
             var contentNode = rootNode.AppendChild(document.CreateElement("Content"));
-            contentNode.InnerText = CreateContentFrom(from, to, cc, bcc, content);
+            contentNode.InnerText = CreateContentFrom(mailId, from, to, cc, bcc, content);
 
             return document.InnerXml;
         }
 
-        private string CreateContentFrom(string from, List<string> to, List<string> cc, List<string> bcc, string originalContent)
+        private string CreateContentFrom(string mailId, string from, List<string> to, List<string> cc, List<string> bcc, string originalContent)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -347,6 +370,7 @@ namespace KepStandalone
             sb.AppendLine(newLineText);
 
             sb.AppendLine("Kimden: " + from);
+            sb.AppendLine(newLineText);
             sb.AppendLine(newLineText);
 
             if(to.Count > 0)
@@ -363,6 +387,7 @@ namespace KepStandalone
             }
 
             sb.AppendLine(newLineText);
+            sb.AppendLine(newLineText);
 
             if (cc.Count > 0)
             {
@@ -377,6 +402,7 @@ namespace KepStandalone
                 sb.Remove(sb.Length - 1, 1);
             }
             sb.AppendLine(newLineText);
+            sb.AppendLine(newLineText);
 
             if (bcc.Count > 0)
             {
@@ -390,6 +416,12 @@ namespace KepStandalone
 
                 sb.Remove(sb.Length - 1, 1);
             }
+
+            sb.AppendLine(newLineText);
+            sb.AppendLine(newLineText);
+
+            sb.AppendLine("Kep Sıra No: ");
+            sb.Append(mailId);
 
             sb.AppendLine(newLineText);
             sb.AppendLine(newLineText);
