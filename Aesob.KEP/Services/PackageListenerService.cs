@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Linq;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.ServiceModel;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Xml;
 using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
+using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
 using Microsoft.IdentityModel.Tokens;
 using Tr.Com.Eimza.EYazisma;
@@ -111,8 +113,8 @@ namespace KepStandalone
 
             Debug.Print($"Paketler Taranıyor: {_lastCheckedDate:dd/MM/yyyy HH:mm:ss}  -  {curDate:dd/MM/yyyy HH:mm:ss}");
 
-            //var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
             var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
+            //var foundPackagesData = _eYazisma.PaketSorgula(curDate.AddDays(-3), curDate);
             _lastCheckedDate = curDate;
 
             if (foundPackagesData == null)
@@ -158,14 +160,64 @@ namespace KepStandalone
                     {
                         var mimeValue = _eYazisma.SmimeParcala(Convert.ToBase64String(mimeAttachment.Degeri));
 
+                        List<MailAttachment> attachments = new List<MailAttachment>();
+
+                        foreach(var ek in mimeValue.Ekler)
+                        {
+                            if (ek.Adi.EndsWith(".eyp"))
+                            {
+                                var memoryStream = new MemoryStream(ek.Degeri);
+
+                                List<Ek> ekler = new List<Ek>();
+                                Stream ustYaziStream = null;
+                                string dosyaAdi = ek.Adi;
+
+                                try
+                                {
+                                    var paket = Cbddo.eYazisma.Tipler.Paket.Ac(memoryStream, Cbddo.eYazisma.Tipler.PaketModu.Ac);
+
+                                    ustYaziStream = paket.UstYaziAl();
+                                    dosyaAdi = paket.Ustveri.DosyaAdiAl();
+                                }
+                                catch
+                                {
+                                    try
+                                    {
+                                        var paket = Dpt.eYazisma.Tipler.Paket.Ac(memoryStream, Dpt.eYazisma.Tipler.PaketModu.Ac);
+
+                                        ustYaziStream = paket.UstYaziAl();
+                                        dosyaAdi = paket.Ustveri.DosyaAdiAl();
+                                    }
+                                    catch
+                                    {
+
+                                    }
+                                }
+
+                                if(ustYaziStream != null)
+                                {
+                                    MemoryStream ms = new MemoryStream();
+                                    ustYaziStream.CopyTo(ms);
+                                    var bytes = ms.ToArray();
+
+                                    var attachment = MailAttachment.FromEk(new Ek(dosyaAdi, bytes));
+                                    attachments.Add(attachment);
+                                }
+                            }
+                            else
+                            {
+                                attachments.Add(MailAttachment.FromEk(ek));
+                            }
+                        }
+
                         if(mimeValue != null && mimeValue.Durum == 0)
                         {
                             var mailContent = new PackageMailContent()
                             {
                                 Cc = mimeValue.Cc,
                                 Bcc = mimeValue.Bcc,
-                                Attachments = MailAttachment.FromMultipleEk(mimeValue.Ekler),
-                                Content = mimeValue.Icerik,
+                                Attachments = attachments,
+                                Content = string.IsNullOrEmpty(mimeValue.Icerik) ? smime.Icerik : mimeValue.Icerik,
                                 From = mimeValue.Kimden,
                                 To = mimeValue.Kime,
                                 ImzaP7s = MailAttachment.FromEk(mimeValue.ImzaP7s),
@@ -287,13 +339,15 @@ namespace KepStandalone
         {
             StringBuilder sb = new StringBuilder();
 
+            const string newLineText = "{aesob_newline}";
+
             sb.AppendLine(originalContent);
 
-            sb.AppendLine();
-            sb.AppendLine();
+            sb.AppendLine(newLineText);
+            sb.AppendLine(newLineText);
 
             sb.AppendLine("Kimden: " + from);
-            sb.AppendLine();
+            sb.AppendLine(newLineText);
 
             if(to.Count > 0)
             {
@@ -308,7 +362,7 @@ namespace KepStandalone
                 sb.Remove(sb.Length - 1, 1);
             }
 
-            sb.AppendLine();
+            sb.AppendLine(newLineText);
 
             if (cc.Count > 0)
             {
@@ -322,7 +376,7 @@ namespace KepStandalone
 
                 sb.Remove(sb.Length - 1, 1);
             }
-            sb.AppendLine();
+            sb.AppendLine(newLineText);
 
             if (bcc.Count > 0)
             {
@@ -337,8 +391,8 @@ namespace KepStandalone
                 sb.Remove(sb.Length - 1, 1);
             }
 
-            sb.AppendLine();
-            sb.AppendLine();
+            sb.AppendLine(newLineText);
+            sb.AppendLine(newLineText);
 
             return sb.ToString();
         }
