@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Tr.Com.Eimza.EYazisma;
+﻿using Tr.Com.Eimza.EYazisma;
 
 namespace Aesob.KEP.Services
 {

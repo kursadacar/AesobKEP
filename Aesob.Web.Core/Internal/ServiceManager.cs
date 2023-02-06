@@ -12,11 +12,11 @@ namespace Aesob.Web.Core.Internal
     {
         private const int _serviceUpdateInterval = (int)(0.1f * 1000);
 
-        internal static bool IsRunning { get; private set; }
         internal static ServiceManager Instance { get; private set; }
 
+        private static bool _isRunning;
+
         private Dictionary<Type, IAesobService> _serviceInstances;
-        private Dictionary<IAesobService, Dictionary<string, IServiceConfig>> _serviceConfigs;
         private DateTime _lastUpdateTime;
 
         private IAesobConfigurationManager _configurationManager;
@@ -25,7 +25,6 @@ namespace Aesob.Web.Core.Internal
         internal ServiceManager()
         {
             _serviceInstances = new Dictionary<Type, IAesobService>();
-            _serviceConfigs = new Dictionary<IAesobService, Dictionary<string, IServiceConfig>>();
 
             Instance = this;
         }
@@ -40,45 +39,11 @@ namespace Aesob.Web.Core.Internal
             return null;
         }
 
-        internal void SetServiceConfig(IAesobService service, string key, IServiceConfig value)
-        {
-            if(_serviceConfigs.TryGetValue(service, out var config))
-            {
-                config[key] = value;
-            }
-            else
-            {
-                Debug.FailedAssert($"Could not find service in config dictionary: {service.GetType().Name}");
-            }
-        }
-
-        internal IServiceConfig GetServiceConfig(IAesobService service, string key)
-        {
-            if(_serviceConfigs.TryGetValue(service, out var config))
-            {
-                if(config.TryGetValue(key, out var value))
-                {
-                    return value;
-                }
-                else
-                {
-                    Debug.FailedAssert($"Could not find config parameter: {key} in config for: {service.GetType().Name}");
-                }
-            }
-            else
-            {
-                Debug.FailedAssert($"Could not find service in config dictionary: {service.GetType().Name}");
-            }
-
-            return ServiceConfig.Empty;
-        }
-
         internal void Start()
         {
             _serviceProvider = new AesobServiceProvider();
             _configurationManager = new AesobConfigurationManager();
             _serviceInstances.Clear();
-            _serviceConfigs.Clear();
 
             Debug.Assert(_serviceProvider != null, "Service Provider can't be null");
             Debug.Assert(_configurationManager != null, "Configuration Manager can't be null");
@@ -88,11 +53,6 @@ namespace Aesob.Web.Core.Internal
                 var serviceTypes = _serviceProvider.CollectAvailableServiceTypes().ToList();
                 _serviceInstances = CreateServices(serviceTypes.ToList());
 
-                foreach(var serviceKvp in _serviceInstances)
-                {
-                    _serviceConfigs.Add(serviceKvp.Value, new Dictionary<string, IServiceConfig>());
-                }
-
                 ConfigureServices(_serviceInstances.Values.ToList());
 
                 foreach (var serviceKvp in _serviceInstances)
@@ -101,7 +61,7 @@ namespace Aesob.Web.Core.Internal
                     serviceKvp.Value.Start();
                 }
 
-                IsRunning = true;
+                _isRunning = true;
             }
             catch (Exception e)
             {
@@ -113,7 +73,7 @@ namespace Aesob.Web.Core.Internal
         {
             _lastUpdateTime = DateTime.Now;
 
-            while (IsRunning)
+            while (_isRunning)
             {
                 await Task.Delay(_serviceUpdateInterval);
 
@@ -135,7 +95,7 @@ namespace Aesob.Web.Core.Internal
         {
             try
             {
-                IsRunning = false;
+                _isRunning = false;
 
                 foreach (var service in _serviceInstances)
                 {

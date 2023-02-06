@@ -14,12 +14,10 @@ namespace KepStandalone
 {
     public class PackageListenerService : IAesobService
     {
-        private const float _loginTrialInterval = 5f;
         private float _checkIntervalInSeconds = 10f;//Check every 10 seconds
 
         private IAesobService _thisAsInterface;
 
-        private bool _isLoggedIn;
         private float _checkTimer;
 
         private HttpClient _httpClient;
@@ -64,18 +62,12 @@ namespace KepStandalone
 
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
-            _isLoggedIn = true;
-            //var loginTask = TryLogin();
-
             _checkTimer = 0;
         }
 
         void IAesobService.Update(float dt)
         {
-            if (_isLoggedIn)
-            {
-                PackageTick(dt);
-            }
+            PackageTick(dt);
         }
 
         void IAesobService.Stop()
@@ -92,47 +84,6 @@ namespace KepStandalone
             {
                 TryRegisterNewPackages();
                 _checkTimer = 0f;
-            }
-        }
-
-        private async Task TryLogin()
-        {
-            var loginTrialInterval = (int)(_loginTrialInterval * 1000);
-            while (!_isLoggedIn)
-            {
-                string loginInfo = $"Giriş Deneniyor...";
-                Debug.Print(loginInfo);
-
-                var regularLoginResult = _eYazisma.Giris(EYazismaGirisTur.OTP);
-
-                bool isSuccess = regularLoginResult?.Durum == "0";
-                string status = isSuccess ? "Başarılı" : "Başarısız";
-                Debug.Print($"Giriş Sonuç: {status}. Mesaj: {regularLoginResult?.HataAciklama}");
-
-                if (!isSuccess)
-                {
-                    await Task.Delay(loginTrialInterval);
-                    continue;
-                }
-
-                Debug.Print($"Lütfen telefonunuza gelen SMS şifresini giriniz...");
-                var smsKey = Console.ReadLine();
-
-                var secureLoginResult = _eYazisma.GuvenliGiris(regularLoginResult.GuvenlikId, smsKey);
-
-                isSuccess = secureLoginResult?.Durum == "0";
-                status = isSuccess ? "Başarılı" : "Başarısız";
-                Debug.Print($"Güvenli Giriş Sonuç: {status}. Mesaj: {secureLoginResult?.HataAciklama}");
-
-                if (!isSuccess)
-                {
-                    await Task.Delay(loginTrialInterval);
-                    continue;
-                }
-
-                Debug.Print("Giriş başarılı!");
-
-                _isLoggedIn = true;
             }
         }
 
@@ -160,29 +111,32 @@ namespace KepStandalone
 
             Debug.Print($"Paketler Taranıyor: {_lastCheckedDate:dd/MM/yyyy HH:mm:ss}  -  {curDate:dd/MM/yyyy HH:mm:ss}");
 
+            //var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
             var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
             _lastCheckedDate = curDate;
 
-            if (foundPackagesData == null || foundPackagesData.Durum[0] != 0)
+            if (foundPackagesData == null)
             {
-                if (foundPackagesData?.Durum[0] == -1)
-                {
-                    Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
-                }
-                else
-                {
-                    Debug.Print("Error while getting packages: " + foundPackagesData?.HataAciklama[0] ?? "Package data is null");
-                }
+                Debug.Print("Error while getting packages: " + foundPackagesData?.HataAciklama[0] ?? "Package data is null");
+            }
+            else if (foundPackagesData.Durum[0] != 0)
+            {
+                _lastCheckedDate = curDate;
+                Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
             }
             else
             {
-                foreach(var kepSiraNo in foundPackagesData.KepSiraNo)
+                _lastCheckedDate = curDate;
+
+                foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
                     var siraNo = kepSiraNo ?? -1;
 
                     var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
 
-                    packages = GetPackagesFrom(downloadResult);
+                    var package = GetPackagesFrom(downloadResult);
+
+                    packages.AddRange(package);
                 }
             }
 

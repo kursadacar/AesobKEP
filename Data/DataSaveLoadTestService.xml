@@ -1,0 +1,22 @@
+<ServiceData ServiceName="DataSaveLoadTestService">
+  <DataCollection>
+    <Data Name="Name_0" Value="Value_0" />
+    <Data Name="Name_1" Value="Value_1" />
+    <Data Name="Name_2" Value="Value_2" />
+    <Data Name="Name_3" Value="Value_3" />
+    <Data Name="Name_4" Value="Value_4" />
+    <Data Name="Name_5" Value="Value_5" />
+    <Data Name="Name_6" Value="Value_6">
+      <Data Name="Name_6_0" Value="Value_6_0">
+        <Data Name="Name_6_0_0" Value="Value_6_0_0">
+          <Data Name="Name_6_0_0_0" Value="Value_6_0_0_0" />
+          <Data Name="Name_6_0_0_1" Value="Value_6_0_0_1" />
+        </Data>
+      </Data>
+      <Data Name="Name_6_1" Value="Value_6_1" />
+      <Data Name="Name_6_2" Value="Value_6_2" />
+    </Data>
+    <Data Name="Name_7" Value="Value_7" />
+    <Data Name="Name_8" Value="Value_8" />
+  </DataCollection>
+</ServiceData>

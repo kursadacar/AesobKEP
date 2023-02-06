@@ -1,31 +1,50 @@
 ﻿using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Utility;
+using System.IO;
 using System.Text;
 
 namespace Aesob.Web.Library
 {
     public static class Debug
     {
+        private static DateTime _applicationStartDate;
+        private static string _logFileName;
+
         public static void Assert(bool condition, string message)
         {
             System.Diagnostics.Debug.Assert(condition, message);
+
+            if (!condition)
+            {
+                Log(message);
+            }
         }
 
         public static void FailedAssert(string message)
         {
             System.Diagnostics.Debug.Assert(false, message);
+
+            Log(message);
         }
 
         public static void Print(string message)
         {
-            Console.WriteLine(DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true)); ;
+#if DEBUG
+            Console.WriteLine(DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true));
+
+            Log(message);
+#endif
+        }
+
+        public static void Initialize(DateTime applicationStartDate)
+        {
+            _applicationStartDate = applicationStartDate;
+            _logFileName = "log_" + _applicationStartDate.ToString("dd_MM_yyyy__HH_mm_ss") + ".txt";
         }
 
         public static void Log(string message)
         {
-            var logPath = DataPaths.Root.Copy();
-            logPath.Append("Log");
-
+            var logPath = ApplicationPath.LogFolder;
             var logPathString = logPath.ToString();
 
             try
@@ -35,19 +54,21 @@ namespace Aesob.Web.Library
                     Directory.CreateDirectory(logPathString);
                 }
 
-                var filePath = logPath.Append("log.txt").ToString();
+                var filePath = logPath.Append(_logFileName).ToString();
+
+                StreamWriter streamWriter;
                 if (!File.Exists(filePath))
                 {
-                    using (StreamWriter streamWriter = new StreamWriter(filePath))
-                    {
-                        StringBuilder sb = new StringBuilder();
-                        sb.Append(DateTime.Now.ToString("[ss:mm:HH - dd/MM/yyyy]"));
-                        sb.Append(" ERROR: ");
-                        sb.AppendLine(message);
-
-                        streamWriter.Write(sb.ToString());
-                    }
+                    streamWriter = new StreamWriter(File.Create(filePath));
                 }
+                else
+                {
+                    streamWriter = File.AppendText(filePath);
+                }
+
+                streamWriter.Write(message);
+                streamWriter.Close();
+                streamWriter.Dispose();
             }
             catch (Exception e)
             {

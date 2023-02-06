@@ -1,4 +1,5 @@
 ﻿using Aesob.Web.Core.Internal;
+using Aesob.Web.Library;
 using Aesob.Web.Library.Service;
 
 namespace Aesob.Web.Core
@@ -12,6 +13,8 @@ namespace Aesob.Web.Core
         public AesobWebProgram()
         {
             _serviceManager = new ServiceManager();
+
+            Debug.Initialize(DateTime.Now);
         }
 
         public async Task Start()

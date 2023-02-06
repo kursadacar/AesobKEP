@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 
 namespace Aesob.Web.Library.Path
 {
@@ -16,7 +12,7 @@ namespace Aesob.Web.Library.Path
 
         private Path(List<string> segments)
         {
-            _segments = segments;
+            _segments = segments.ToList();
         }
 
         public Path(string path)
@@ -34,14 +30,17 @@ namespace Aesob.Web.Library.Path
             }
         }
 
-        public Path CreateFrom(Path path)
-        {
-            return new Path(_segments);
-        }
-
         public Path Copy()
         {
-            return CreateFrom(this);
+            var newPath = new Path(_segments);
+            return newPath;
+        }
+
+        public Path Prepend(string segment)
+        {
+            _segments.Insert(0, segment);
+
+            return this;
         }
 
         public Path Append(string segment)
