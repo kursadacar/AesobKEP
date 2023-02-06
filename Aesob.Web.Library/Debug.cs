@@ -66,7 +66,7 @@ namespace Aesob.Web.Library
                     streamWriter = File.AppendText(filePath);
                 }
 
-                streamWriter.Write(message);
+                streamWriter.WriteLine(message);
                 streamWriter.Close();
                 streamWriter.Dispose();
             }
