@@ -2,12 +2,12 @@
 {
     public interface IServiceConfig 
     {
-        public bool IsEmpty { get; }
+        bool IsEmpty { get; }
 
-        public string Name { get; set; }
+        string Name { get; set; }
 
-        public string Value { get; set; }
+        string Value { get; set; }
 
-        public IReadOnlyCollection<IServiceConfig> SubConfigs { get; }
+        IReadOnlyCollection<IServiceConfig> SubConfigs { get; }
     }
 }

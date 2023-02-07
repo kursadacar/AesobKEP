@@ -21,12 +21,42 @@ namespace Aesob.Web.Core.Internal.Services
 
         public bool IsEmpty => this == Empty;
 
-        public string Name { get; set; }
+        private bool _isDirty;
+        public bool IsDirty
+        {
+            get { return _isDirty; }
+            set { _isDirty = value; }
+        }
 
-        public string Value { get; set; }
+        private string _name;
+        public string Name
+        {
+            get { return _name; }
+            set
+            {
+                if(value != _name)
+                {
+                    _name = value;
+                    IsDirty = true;
+                }
+            }
+        }
+
+        private string _value;
+        public string Value
+        {
+            get { return _value; }
+            set
+            {
+                if(value != _value)
+                {
+                    _value = value;
+                    IsDirty = true;
+                }
+            }
+        }
 
         private List<IServiceData> _subData;
-
         public IReadOnlyCollection<IServiceData> SubData { get; }
 
         public ServiceData()
@@ -50,6 +80,14 @@ namespace Aesob.Web.Core.Internal.Services
         public IServiceData AddSubData(IServiceData data)
         {
             _subData.Add(data);
+            IsDirty = true;
+            return data;
+        }
+
+        public IServiceData RemoveSubData(IServiceData data)
+        {
+            _subData.Remove(data);
+            IsDirty = true;
             return data;
         }
 
@@ -79,6 +117,22 @@ namespace Aesob.Web.Core.Internal.Services
         {
             if(_serviceDatas.TryGetValue(service, out var serviceDatas))
             {
+                bool isAnyDataDirty = false;
+                foreach(var dataKvp in serviceDatas)
+                {
+                    if (GetIsDataDirty(dataKvp.Value))
+                    {
+                        isAnyDataDirty = true;
+                        break;
+                    }
+                }
+
+                //Do not process if there is no new data
+                if (!isAnyDataDirty)
+                {
+                    return;
+                }
+
                 string dataPath;
                 if(!_serviceDataPaths.TryGetValue(service, out dataPath))
                 {
@@ -104,6 +158,39 @@ namespace Aesob.Web.Core.Internal.Services
                 }
 
                 document.Save(dataPath);
+
+                foreach(var data in serviceDatas)
+                {
+                    SetAllDataDirty(data.Value, false);
+                }
+            }
+        }
+
+        private static bool GetIsDataDirty(IServiceData serviceData)
+        {
+            if (serviceData.IsDirty)
+            {
+                return true;
+            }
+
+            foreach(var subData in serviceData.SubData)
+            {
+                if (GetIsDataDirty(subData))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void SetAllDataDirty(IServiceData serviceData, bool value)
+        {
+            serviceData.IsDirty = value;
+
+            foreach(var subData in serviceData.SubData)
+            {
+                SetAllDataDirty(subData, value);
             }
         }
 

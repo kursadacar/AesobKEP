@@ -27,8 +27,6 @@ namespace KepStandalone
 
         private List<string> _targetEmails = new List<string>();
 
-        private IServiceData _redirectedMailsData;
-
         public PackageListenerService()
         {
             _httpClient = new HttpClient();
@@ -51,11 +49,7 @@ namespace KepStandalone
                 _checkIntervalInSeconds = checkInterval;
             }
 
-            _redirectedMailsData = _thisAsInterface.GetData("RedirectedKepEmails");
-            if(_redirectedMailsData == null)
-            {
-                _redirectedMailsData = _thisAsInterface.CreateAndRegisterServiceData("RedirectedKepEmails", string.Empty);
-            }
+
 
             var targetEmailsConfig = _thisAsInterface.GetConfig("TargetEmails");
             if(targetEmailsConfig != null && !targetEmailsConfig.IsEmpty)
@@ -82,6 +76,24 @@ namespace KepStandalone
         {
             _eYazisma = null;
             _checkTimer = 0f;
+        }
+
+        private IServiceData GetTodaysEmailData()
+        {
+            var today = DateTime.Now;
+            var dayString = today.Day < 10 ? "0" + today.Day.ToString() : today.Day.ToString();
+            var monthString = today.Month < 10 ? "0" + today.Month.ToString() : today.Month.ToString();
+            var yearString = today.Year < 10 ? "0" + today.Year.ToString() : today.Year.ToString();
+
+            var dataName = "RedirectedKepEmails_" + dayString + monthString + yearString;
+
+            var data = _thisAsInterface.GetData(dataName);
+            if (data == null)
+            {
+                data = _thisAsInterface.CreateAndRegisterServiceData(dataName, string.Empty);
+            }
+
+            return data;
         }
 
         private void PackageTick(float dt)
@@ -118,9 +130,8 @@ namespace KepStandalone
 
             var packages = new List<PackageMailContent>();
 
-            Debug.Print($"Paketler Taranıyor: {beginDate:dd/MM/yyyy}  -  {endDate:dd/MM/yyyy}");
+            Debug.Print($"Paketler Taranıyor...");
 
-            //var foundPackagesData = _eYazisma.PaketSorgula(_lastCheckedDate, curDate);
             var foundPackagesData = _eYazisma.PaketSorgula(beginDate, endDate);
 
             if (foundPackagesData == null)
@@ -133,13 +144,15 @@ namespace KepStandalone
             }
             else
             {
+                var todaysData = GetTodaysEmailData();
+
                 foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
                     var siraNo = kepSiraNo ?? -1;
 
                     try
                     {
-                        var sentMailsLookup = _redirectedMailsData.SubData.Select(s => s.Value);
+                        var sentMailsLookup = todaysData.SubData.Select(s => s.Value);
                         var siraNoString = siraNo.ToString();
 
                         if (!sentMailsLookup.Contains(siraNoString))
@@ -150,7 +163,7 @@ namespace KepStandalone
 
                             packages.AddRange(package);
 
-                            _redirectedMailsData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", siraNoString));
+                            todaysData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", siraNoString));
                         }
                     }
                     catch
@@ -196,17 +209,20 @@ namespace KepStandalone
                                 {
                                     var paket = Cbddo.eYazisma.Tipler.Paket.Ac(memoryStream, Cbddo.eYazisma.Tipler.PaketModu.Ac);
 
-                                    var ustVeriEkler = paket.Ustveri.EkleriAl();
-                                    foreach (var ustVeriEk in ustVeriEkler)
+                                    var ustVeriEkler = paket.Ustveri?.EkleriAl();
+                                    if (ustVeriEkler != null)
                                     {
-                                        var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
+                                        foreach (var ustVeriEk in ustVeriEkler)
+                                        {
+                                            var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
 
-                                        var ekPaketMs = new MemoryStream();
-                                        ekPaket.CopyTo(ekPaketMs);
-                                        var ekPaketBuffer = ekPaketMs.ToArray();
-                                        ekPaketMs.Dispose();
+                                            var ekPaketMs = new MemoryStream();
+                                            ekPaket.CopyTo(ekPaketMs);
+                                            var ekPaketBuffer = ekPaketMs.ToArray();
+                                            ekPaketMs.Dispose();
 
-                                        ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                            ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                        }
                                     }
 
                                     ustYaziStream = paket.UstYaziAl();
@@ -218,17 +234,20 @@ namespace KepStandalone
                                     {
                                         var paket = Dpt.eYazisma.Tipler.Paket.Ac(memoryStream, Dpt.eYazisma.Tipler.PaketModu.Ac);
 
-                                        var ustVeriEkler = paket.Ustveri.EkleriAl();
-                                        foreach(var ustVeriEk in ustVeriEkler)
+                                        var ustVeriEkler = paket.Ustveri?.EkleriAl();
+                                        if(ustVeriEkler != null)
                                         {
-                                            var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
+                                            foreach (var ustVeriEk in ustVeriEkler)
+                                            {
+                                                var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
 
-                                            var ekPaketMs = new MemoryStream();
-                                            ekPaket.CopyTo(ekPaketMs);
-                                            var ekPaketBuffer = ekPaketMs.ToArray();
-                                            ekPaketMs.Dispose();
+                                                var ekPaketMs = new MemoryStream();
+                                                ekPaket.CopyTo(ekPaketMs);
+                                                var ekPaketBuffer = ekPaketMs.ToArray();
+                                                ekPaketMs.Dispose();
 
-                                            ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                                ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                            }
                                         }
 
                                         ustYaziStream = paket.UstYaziAl();
