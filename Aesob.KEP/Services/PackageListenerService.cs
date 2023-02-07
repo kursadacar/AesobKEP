@@ -158,9 +158,9 @@ namespace KepStandalone
 
                     }
                 }
-            }
 
-            _thisAsInterface.SaveData();
+                _thisAsInterface.SaveData();
+            }
 
             return packages;
         }
@@ -196,6 +196,19 @@ namespace KepStandalone
                                 {
                                     var paket = Cbddo.eYazisma.Tipler.Paket.Ac(memoryStream, Cbddo.eYazisma.Tipler.PaketModu.Ac);
 
+                                    var ustVeriEkler = paket.Ustveri.EkleriAl();
+                                    foreach (var ustVeriEk in ustVeriEkler)
+                                    {
+                                        var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
+
+                                        var ekPaketMs = new MemoryStream();
+                                        ekPaket.CopyTo(ekPaketMs);
+                                        var ekPaketBuffer = ekPaketMs.ToArray();
+                                        ekPaketMs.Dispose();
+
+                                        ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                    }
+
                                     ustYaziStream = paket.UstYaziAl();
                                     dosyaAdi = paket.Ustveri.DosyaAdiAl();
                                 }
@@ -204,6 +217,19 @@ namespace KepStandalone
                                     try
                                     {
                                         var paket = Dpt.eYazisma.Tipler.Paket.Ac(memoryStream, Dpt.eYazisma.Tipler.PaketModu.Ac);
+
+                                        var ustVeriEkler = paket.Ustveri.EkleriAl();
+                                        foreach(var ustVeriEk in ustVeriEkler)
+                                        {
+                                            var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
+
+                                            var ekPaketMs = new MemoryStream();
+                                            ekPaket.CopyTo(ekPaketMs);
+                                            var ekPaketBuffer = ekPaketMs.ToArray();
+                                            ekPaketMs.Dispose();
+
+                                            ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
+                                        }
 
                                         ustYaziStream = paket.UstYaziAl();
                                         dosyaAdi = paket.Ustveri.DosyaAdiAl();
@@ -220,8 +246,11 @@ namespace KepStandalone
                                     ustYaziStream.CopyTo(ms);
                                     var bytes = ms.ToArray();
 
+                                    var ustVeriAttachments = MailAttachment.FromMultipleEk(ekler);
                                     var attachment = MailAttachment.FromEk(new Ek(dosyaAdi, bytes));
+
                                     attachments.Add(attachment);
+                                    attachments.AddRange(ustVeriAttachments);
                                 }
                             }
                             else
@@ -376,18 +405,20 @@ namespace KepStandalone
             if(to.Count > 0)
             {
                 sb.AppendLine("Kime: ");
+                sb.AppendLine(newLineText);
 
                 foreach(var _to in to)
                 {
+                    sb.Append(" - ");
                     sb.Append(_to);
-                    sb.Append(';');
+                    sb.Append(newLineText);
                 }
 
                 sb.Remove(sb.Length - 1, 1);
-            }
 
-            sb.AppendLine(newLineText);
-            sb.AppendLine(newLineText);
+                sb.AppendLine(newLineText);
+                sb.AppendLine(newLineText);
+            }
 
             if (cc.Count > 0)
             {
@@ -400,9 +431,10 @@ namespace KepStandalone
                 }
 
                 sb.Remove(sb.Length - 1, 1);
+
+                sb.AppendLine(newLineText);
+                sb.AppendLine(newLineText);
             }
-            sb.AppendLine(newLineText);
-            sb.AppendLine(newLineText);
 
             if (bcc.Count > 0)
             {
@@ -415,10 +447,11 @@ namespace KepStandalone
                 }
 
                 sb.Remove(sb.Length - 1, 1);
+
+                sb.AppendLine(newLineText);
+                sb.AppendLine(newLineText);
             }
 
-            sb.AppendLine(newLineText);
-            sb.AppendLine(newLineText);
 
             sb.AppendLine("Kep Sıra No: ");
             sb.Append(mailId);
