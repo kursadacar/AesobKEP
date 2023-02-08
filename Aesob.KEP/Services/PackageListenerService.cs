@@ -433,8 +433,6 @@ namespace KepStandalone
                     sb.Append(newLineText);
                 }
 
-                sb.Remove(sb.Length - 1, 1);
-
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
             }
@@ -446,10 +444,8 @@ namespace KepStandalone
                 foreach (var c in cc)
                 {
                     sb.Append(c);
-                    sb.Append(';');
+                    sb.Append("; ");
                 }
-
-                sb.Remove(sb.Length - 1, 1);
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -462,10 +458,8 @@ namespace KepStandalone
                 foreach (var _bcc in bcc)
                 {
                     sb.Append(_bcc);
-                    sb.Append(';');
+                    sb.Append("; ");
                 }
-
-                sb.Remove(sb.Length - 1, 1);
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
