@@ -460,7 +460,7 @@ namespace KepStandalone
 
         private string GetItemizedList(List<string> strings)
         {
-            if(strings.Count == 0)
+            if(strings == null || strings.Count == 0)
             {
                 return string.Empty;
             }
