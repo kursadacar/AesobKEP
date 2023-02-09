@@ -424,14 +424,7 @@ namespace KepStandalone
             if(to.Count > 0)
             {
                 sb.AppendLine("Kime: ");
-                sb.AppendLine(newLineText);
-
-                foreach(var _to in to)
-                {
-                    sb.Append(" - ");
-                    sb.Append(_to);
-                    sb.Append(newLineText);
-                }
+                sb.Append(GetItemizedList(to));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -440,12 +433,7 @@ namespace KepStandalone
             if (cc.Count > 0)
             {
                 sb.AppendLine("CC: ");
-
-                foreach (var c in cc)
-                {
-                    sb.Append(c);
-                    sb.Append("; ");
-                }
+                sb.Append(GetItemizedList(cc));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -454,12 +442,7 @@ namespace KepStandalone
             if (bcc.Count > 0)
             {
                 sb.AppendLine("Bcc: ");
-
-                foreach (var _bcc in bcc)
-                {
-                    sb.Append(_bcc);
-                    sb.Append("; ");
-                }
+                sb.Append(GetItemizedList(bcc));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -471,6 +454,29 @@ namespace KepStandalone
 
             sb.AppendLine(newLineText);
             sb.AppendLine(newLineText);
+
+            return sb.ToString();
+        }
+
+        private string GetItemizedList(List<string> strings)
+        {
+            if(strings.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            if(strings.Count == 1)
+            {
+                return strings[0];
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            for(int i = 0; i < strings.Count; i++)
+            {
+                sb.AppendLine(" - ");
+                sb.Append(strings[i]);
+            }
 
             return sb.ToString();
         }
