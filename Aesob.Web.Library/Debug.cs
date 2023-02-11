@@ -29,8 +29,9 @@ namespace Aesob.Web.Library
 
         public static void Print(string message)
         {
-            Console.WriteLine(DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true));
-            Log(message);
+            var textWithDateTime = DateTimeUtility.GetTextAppendedToDateTime(DateTime.Now, message, true);
+            Console.WriteLine(textWithDateTime);
+            Log(textWithDateTime);
         }
 
         public static void Initialize(DateTime applicationStartDate)
