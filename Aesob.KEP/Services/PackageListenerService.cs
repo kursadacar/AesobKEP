@@ -424,7 +424,7 @@ namespace KepStandalone
             if(to.Count > 0)
             {
                 sb.AppendLine("Kime: ");
-                sb.Append(GetItemizedList(to));
+                sb.Append(GetItemizedList(to, newLineText));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -433,7 +433,7 @@ namespace KepStandalone
             if (cc.Count > 0)
             {
                 sb.AppendLine("CC: ");
-                sb.Append(GetItemizedList(cc));
+                sb.Append(GetItemizedList(cc, newLineText));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -442,7 +442,7 @@ namespace KepStandalone
             if (bcc.Count > 0)
             {
                 sb.AppendLine("Bcc: ");
-                sb.Append(GetItemizedList(bcc));
+                sb.Append(GetItemizedList(bcc, newLineText));
 
                 sb.AppendLine(newLineText);
                 sb.AppendLine(newLineText);
@@ -458,7 +458,7 @@ namespace KepStandalone
             return sb.ToString();
         }
 
-        private string GetItemizedList(List<string> strings)
+        private string GetItemizedList(List<string> strings, string newLineText)
         {
             if(strings == null || strings.Count == 0)
             {
@@ -474,7 +474,8 @@ namespace KepStandalone
 
             for(int i = 0; i < strings.Count; i++)
             {
-                sb.AppendLine(" - ");
+                sb.Append(newLineText);
+                sb.Append(" - ");
                 sb.Append(strings[i]);
             }
 
