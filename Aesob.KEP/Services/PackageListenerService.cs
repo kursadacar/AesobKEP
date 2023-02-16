@@ -130,19 +130,15 @@ namespace KepStandalone
 
             var packages = new List<PackageMailContent>();
 
-            Debug.Print($"Paketler Taranıyor...");
+            Debug.Log($"Paketler Taranıyor...");
 
             var foundPackagesData = _eYazisma.PaketSorgula(beginDate, endDate);
 
             if (foundPackagesData == null)
             {
-                Debug.Print("Error while getting packages: " + foundPackagesData?.HataAciklama[0] ?? "Package data is null");
+                Debug.Log("Error while getting packages: " + foundPackagesData?.HataAciklama[0] ?? "Package data is null");
             }
-            else if (foundPackagesData.Durum[0] != 0)
-            {
-                Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
-            }
-            else
+            else if (foundPackagesData.Durum[0] == 0)
             {
                 var todaysData = GetTodaysEmailData();
 
@@ -162,7 +158,6 @@ namespace KepStandalone
                             package.ForEach(p => p.KepSıraNo = siraNoString);
 
                             packages.AddRange(package);
-
                         }
                     }
                     catch
@@ -170,6 +165,11 @@ namespace KepStandalone
 
                     }
                 }
+            }
+
+            if(packages.Count == 0)
+            {
+                Debug.Log("Paket verisi alındı, yeni paket bulunmadı...");
             }
 
             return packages;
