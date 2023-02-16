@@ -163,7 +163,6 @@ namespace KepStandalone
 
                             packages.AddRange(package);
 
-                            todaysData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", siraNoString));
                         }
                     }
                     catch
@@ -171,8 +170,6 @@ namespace KepStandalone
 
                     }
                 }
-
-                _thisAsInterface.SaveData();
             }
 
             return packages;
@@ -325,6 +322,13 @@ namespace KepStandalone
             //var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
             postTask.Wait();
             var postResult = postTask.Result;
+
+            if(postResult.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                var todaysData = GetTodaysEmailData();
+                todaysData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", downloadedPackage.KepSıraNo));
+                _thisAsInterface.SaveData();
+            }
 
             var resultStream = postResult.Content.ReadAsStringAsync().Result;
             Debug.Print("EMail Yönlendirme Sonucu: " + resultStream);
