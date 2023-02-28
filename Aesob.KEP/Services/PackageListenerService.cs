@@ -23,6 +23,7 @@ namespace KepStandalone
         private float _checkTimer;
 
         private HttpClient _httpClient;
+
         private EYazismaApi _eYazisma;
 
         private List<string> _targetEmails = new List<string>();
@@ -31,6 +32,8 @@ namespace KepStandalone
         {
             _httpClient = new HttpClient();
             _thisAsInterface = this;
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 
         void IAesobService.Start()
@@ -48,8 +51,6 @@ namespace KepStandalone
             {
                 _checkIntervalInSeconds = checkInterval;
             }
-
-
 
             var targetEmailsConfig = _thisAsInterface.GetConfig("TargetEmails");
             if(targetEmailsConfig != null && !targetEmailsConfig.IsEmpty)
@@ -160,9 +161,9 @@ namespace KepStandalone
                             packages.AddRange(package);
                         }
                     }
-                    catch
+                    catch (Exception e)
                     {
-
+                        Debug.Print($"{kepSiraNo} numaralı paketi ayıklarken hata:\n{e.Message}");
                     }
                 }
             }
