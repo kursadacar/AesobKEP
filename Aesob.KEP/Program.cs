@@ -4,13 +4,11 @@ namespace AesobKEP
 {
     public static class Program
     {
-        public static AesobWebProgram Instance { get; private set; }
-
         public static int Main(string[] args)
         {
-            Instance = new AesobWebProgram();
+            var program = new AesobWebProgram();
 
-            var mainTask = Instance.Start();
+            var mainTask = program.Start();
 
             mainTask.Wait();
 

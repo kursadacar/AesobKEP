@@ -1,4 +1,5 @@
-﻿using Tr.Com.Eimza.EYazisma;
+﻿using Aesob.Web.Library.Email;
+using Tr.Com.Eimza.EYazisma;
 
 namespace Aesob.KEP.Services
 {
@@ -25,32 +26,5 @@ namespace Aesob.KEP.Services
         public EYazismaPaketTur MailType { get; set; }
 
         public string MailTypeId { get; set; }
-    }
-
-    public class MailAttachment
-    {
-        public string Name { get; set; }
-        public byte[] Value { get; set; }
-
-        public static MailAttachment FromEk(Ek ek)
-        {
-            return new MailAttachment()
-            {
-                Name = ek.Adi,
-                Value = ek.Degeri
-            };
-        }
-
-        public static List<MailAttachment> FromMultipleEk(List<Ek> eks)
-        {
-            var result = new List<MailAttachment>();
-
-            foreach (var ek in eks)
-            {
-                result.Add(MailAttachment.FromEk(ek));
-            }
-
-            return result;
-        }
     }
 }

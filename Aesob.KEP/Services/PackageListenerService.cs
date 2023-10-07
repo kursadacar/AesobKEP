@@ -7,6 +7,8 @@ using System.Xml;
 using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
+using Aesob.Web.Library.Email;
+using Aesob.Web.Library.Encyrption;
 using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
 using Microsoft.IdentityModel.Tokens;
@@ -126,7 +128,7 @@ namespace KepStandalone
 
         private List<PackageMailContent> CheckForPackages()
         {
-            var beginDate = DateTime.Now;
+            var beginDate = DateTime.Now.AddDays(-1);
             var endDate = beginDate.AddDays(1);
 
             var packages = new List<PackageMailContent>();
@@ -263,8 +265,8 @@ namespace KepStandalone
                                     ustYaziStream.CopyTo(ms);
                                     var bytes = ms.ToArray();
 
-                                    var ustVeriAttachments = MailAttachment.FromMultipleEk(ekler);
-                                    var attachment = MailAttachment.FromEk(new Ek(dosyaAdi, bytes));
+                                    var ustVeriAttachments = CreateAttachmentFromMultipleEks(ekler);
+                                    var attachment = CreateAttachmentFromEk(new Ek(dosyaAdi, bytes));
 
                                     attachments.Add(attachment);
                                     attachments.AddRange(ustVeriAttachments);
@@ -272,7 +274,7 @@ namespace KepStandalone
                             }
                             else
                             {
-                                attachments.Add(MailAttachment.FromEk(ek));
+                                attachments.Add(CreateAttachmentFromEk(ek));
                             }
                         }
 
@@ -286,7 +288,7 @@ namespace KepStandalone
                                 Content = string.IsNullOrEmpty(mimeValue.Icerik) ? smime.Icerik : mimeValue.Icerik,
                                 From = mimeValue.Kimden,
                                 To = mimeValue.Kime,
-                                ImzaP7s = MailAttachment.FromEk(mimeValue.ImzaP7s),
+                                ImzaP7s = CreateAttachmentFromEk(mimeValue.ImzaP7s),
                                 MailType = mimeValue.MailTipi,
                                 MailTypeId = mimeValue.MailTipId,
                                 Subject = mimeValue.Konu
@@ -301,6 +303,23 @@ namespace KepStandalone
             return packages;
         }
 
+        private static MailAttachment CreateAttachmentFromEk(Ek ek)
+        {
+            return new MailAttachment(ek.Adi, ek.Degeri);
+        }
+
+        private static List<MailAttachment> CreateAttachmentFromMultipleEks(List<Ek> eks)
+        {
+            var result = new List<MailAttachment>();
+
+            foreach (var ek in eks)
+            {
+                result.Add(CreateAttachmentFromEk(ek));
+            }
+
+            return result;
+        }
+
         private void AddPackageToEDYS(PackageMailContent packageData)
         {
             Debug.Print("Adding package to EDYS");
@@ -310,17 +329,16 @@ namespace KepStandalone
 
         private void MailPackageToReceivers(PackageMailContent downloadedPackage)
         {
-            string mailXML = GetXMLStringFromMailData("AesobEmailEncryiptionProtocol123456789",
+            string mailXML = GetXMLStringFromMailData("AesobEmailEncryptionProtocol123456789",
                 "Kep Yönlendirme",
                 downloadedPackage,
                 _targetEmails.ToArray());
 
-            var encodedString = Base64UrlEncoder.Encode(mailXML);
+            var encodedString = EncryptionHelper.EncryptText(mailXML);
 
             var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
 
             var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
-            //var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
             postTask.Wait();
             var postResult = postTask.Result;
 
@@ -335,37 +353,6 @@ namespace KepStandalone
             Debug.Print("EMail Yönlendirme Sonucu: " + resultStream);
         }
 
-        //REMARK_Kursad: This is for debug purposes only
-        private EyPaketSonuc CreateTestResult()
-        {
-            return new EyPaketSonuc()
-            {
-                Durum = new int?[] { 0 },
-                From = new string[] { "KEP Uygulama TEST" },
-                FromKep = new string[] { "KEP Uygulama TEST" },
-                HataAciklama = new string[] { "KEP Uygulama Test Başarılı" },
-                KepId = new string[] { "KEP TEST ID" },
-                KepSiraNo = new int?[] { 0 },
-                Konu = new string[] { "KEP TEST MESAJ KONU" },
-                OrjinalMesajId = new string[] { "KEP TEST MESAJ ID" },
-                Tur = new string[] { "KEP TEST MESAJ TUR" }
-            };
-        }
-
-        private EyPaketIndirSonuc CreateTestPackage()
-        {
-            var api = _eYazisma;
-
-            EyPaketIndirSonuc indirSonuc = api.PaketIndir("<64964.1085840022.37.1639395387226.e8866ba0-5c08-11ec-aae7-e1b7dd8706e4.pttkepmail@hs01.kep.tr>", null,  EYazismaPart.ALL);
-
-            if(indirSonuc != null && indirSonuc.EyazismaPaketi.Length > 0)
-            {
-                return indirSonuc;
-            }
-
-            return null;
-        }
-
         private string GetXMLStringFromMailData(string authKeyword, string senderAlias, PackageMailContent mailContent, string[] targetAddresses)
         {
             XmlDocument document = new XmlDocument();
@@ -378,6 +365,8 @@ namespace KepStandalone
             var cc = mailContent.Cc;
             var bcc = mailContent.Bcc;
             var mailId = mailContent.KepSıraNo;
+
+            var actualContent = CreateContentFrom(mailId, from, to, cc, bcc, content);
 
             var rootNode = document.AppendChild(document.CreateElement("EmailData"));
 

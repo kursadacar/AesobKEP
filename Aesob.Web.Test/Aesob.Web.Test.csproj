@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\AesobWebCore\Aesob.Web.Core\Aesob.Web.Core.csproj" />
+    <ProjectReference Include="..\..\AesobWebCore\Aesob.Web.Library\Aesob.Web.Library.csproj" />
     <ProjectReference Include="..\Aesob.KEP\Aesob.KEP.csproj" />
-    <ProjectReference Include="..\Aesob.Web.Core\Aesob.Web.Core.csproj" />
-    <ProjectReference Include="..\Aesob.Web.Library\Aesob.Web.Library.csproj" />
   </ItemGroup>
 
 </Project>
