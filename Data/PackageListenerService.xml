@@ -56,5 +56,13 @@
       <Data Name="RedirectedKepMail" Value="1563" />
       <Data Name="RedirectedKepMail" Value="1564" />
     </Data>
+    <Data Name="RedirectedKepEmails_07102023" Value="">
+      <Data Name="RedirectedKepMail" Value="2227" />
+      <Data Name="RedirectedKepMail" Value="2228" />
+      <Data Name="RedirectedKepMail" Value="2229" />
+      <Data Name="RedirectedKepMail" Value="2230" />
+      <Data Name="RedirectedKepMail" Value="2231" />
+      <Data Name="RedirectedKepMail" Value="2232" />
+    </Data>
   </DataCollection>
 </ServiceData>

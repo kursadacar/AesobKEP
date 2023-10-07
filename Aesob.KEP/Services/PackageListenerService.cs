@@ -67,7 +67,7 @@ namespace KepStandalone
 
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
-            _checkTimer = 0;
+            _checkTimer = _checkIntervalInSeconds;
         }
 
         void IAesobService.Update(float dt)
@@ -338,7 +338,12 @@ namespace KepStandalone
 
             var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
 
+#if DEBUG
+            var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
+#else
             var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
+#endif
+
             postTask.Wait();
             var postResult = postTask.Result;
 
@@ -395,7 +400,7 @@ namespace KepStandalone
             }
 
             var contentNode = rootNode.AppendChild(document.CreateElement("Content"));
-            contentNode.InnerText = CreateContentFrom(mailId, from, to, cc, bcc, content);
+            contentNode.InnerText = actualContent;
 
             return document.InnerXml;
         }
