@@ -81,12 +81,11 @@ namespace KepStandalone
             _checkTimer = 0f;
         }
 
-        private IServiceData GetTodaysEmailData()
+        private IServiceData GetDailyEmailData(DateTime dateOfDay)
         {
-            var today = DateTime.Now;
-            var dayString = today.Day < 10 ? "0" + today.Day.ToString() : today.Day.ToString();
-            var monthString = today.Month < 10 ? "0" + today.Month.ToString() : today.Month.ToString();
-            var yearString = today.Year < 10 ? "0" + today.Year.ToString() : today.Year.ToString();
+            var dayString = dateOfDay.Day < 10 ? "0" + dateOfDay.Day.ToString() : dateOfDay.Day.ToString();
+            var monthString = dateOfDay.Month < 10 ? "0" + dateOfDay.Month.ToString() : dateOfDay.Month.ToString();
+            var yearString = dateOfDay.Year < 10 ? "0" + dateOfDay.Year.ToString() : dateOfDay.Year.ToString();
 
             var dataName = "RedirectedKepEmails_" + dayString + monthString + yearString;
 
@@ -143,7 +142,8 @@ namespace KepStandalone
             }
             else if (foundPackagesData.Durum[0] == 0)
             {
-                var todaysData = GetTodaysEmailData();
+                var yesterdaysData = GetDailyEmailData(DateTime.Now.AddDays(-1));
+                var todaysData = GetDailyEmailData(DateTime.Now);
 
                 foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
@@ -151,10 +151,11 @@ namespace KepStandalone
 
                     try
                     {
-                        var sentMailsLookup = todaysData.SubData.Select(s => s.Value);
+                        var todaysSentMailLookup = todaysData.SubData.Select(s => s.Value);
+                        var yesterdaysSentMailLookup = yesterdaysData.SubData.Select(s => s.Value);
                         var siraNoString = siraNo.ToString();
 
-                        if (!sentMailsLookup.Contains(siraNoString))
+                        if (!todaysSentMailLookup.Contains(siraNoString) && !yesterdaysSentMailLookup.Contains(siraNoString))
                         {
                             var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
                             var package = GetPackagesFrom(downloadResult);
@@ -349,7 +350,7 @@ namespace KepStandalone
 
             if(postResult.StatusCode == System.Net.HttpStatusCode.OK)
             {
-                var todaysData = GetTodaysEmailData();
+                var todaysData = GetDailyEmailData(DateTime.Now);
                 todaysData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", downloadedPackage.KepSıraNo));
                 _thisAsInterface.SaveData();
             }
