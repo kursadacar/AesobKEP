@@ -127,14 +127,14 @@ namespace KepStandalone
 
         private List<PackageMailContent> CheckForPackages()
         {
-            var beginDate = DateTime.Now.AddDays(-1);
-            var endDate = beginDate.AddDays(1);
+            var today = DateTime.Now;
+            var yesterday = today.AddDays(-1);
 
             var packages = new List<PackageMailContent>();
 
             Debug.Print($"Paketler Taranıyor...");
 
-            var foundPackagesData = _eYazisma.PaketSorgula(beginDate, endDate);
+            var foundPackagesData = _eYazisma.PaketSorgula(yesterday, today.AddDays(1));
 
             if (foundPackagesData == null)
             {
@@ -142,8 +142,8 @@ namespace KepStandalone
             }
             else if (foundPackagesData.Durum[0] == 0)
             {
-                var yesterdaysData = GetDailyEmailData(DateTime.Now.AddDays(-1));
-                var todaysData = GetDailyEmailData(DateTime.Now);
+                var todaysData = GetDailyEmailData(today);
+                var yesterdaysData = GetDailyEmailData(yesterday);
 
                 foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
                 {
@@ -151,11 +151,12 @@ namespace KepStandalone
 
                     try
                     {
-                        var todaysSentMailLookup = todaysData.SubData.Select(s => s.Value);
-                        var yesterdaysSentMailLookup = yesterdaysData.SubData.Select(s => s.Value);
+                        var todaysSentMailLookup = todaysData?.SubData.Select(s => s.Value);
+                        var yesterdaysSentMailLookup = yesterdaysData?.SubData.Select(s => s.Value);
                         var siraNoString = siraNo.ToString();
 
-                        if (!todaysSentMailLookup.Contains(siraNoString) && !yesterdaysSentMailLookup.Contains(siraNoString))
+                        if (todaysSentMailLookup?.Contains(siraNoString) != true
+                            && yesterdaysSentMailLookup?.Contains(siraNoString) != true)
                         {
                             var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
                             var package = GetPackagesFrom(downloadResult);
