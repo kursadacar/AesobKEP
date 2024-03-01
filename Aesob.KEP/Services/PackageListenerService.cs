@@ -364,7 +364,7 @@ namespace KepStandalone
         {
             XmlDocument document = new XmlDocument();
 
-            var subject = mailContent.Subject;
+            var subject = mailContent.Subject.Replace("\n", "");
             var content = mailContent.Content;
             var attachments = mailContent.Attachments;
             var from = mailContent.From;
