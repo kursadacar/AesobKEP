@@ -217,7 +217,6 @@ namespace KepStandalone
                                         foreach (var ustVeriEk in ustVeriEkler)
                                         {
                                             var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
-
                                             var ekPaketMs = new MemoryStream();
                                             ekPaket.CopyTo(ekPaketMs);
                                             var ekPaketBuffer = ekPaketMs.ToArray();
@@ -255,9 +254,9 @@ namespace KepStandalone
                                         ustYaziStream = paket.UstYaziAl();
                                         dosyaAdi = paket.Ustveri.DosyaAdiAl();
                                     }
-                                    catch
+                                    catch(Exception ex)
                                     {
-
+                                        Debug.Print($"Ek işlenirken bir hata oluştu: {ex}");
                                     }
                                 }
 
@@ -364,7 +363,7 @@ namespace KepStandalone
         {
             XmlDocument document = new XmlDocument();
 
-            var subject = mailContent.Subject.Replace("\n", "");
+            var subject = mailContent.Subject;
             var content = mailContent.Content;
             var attachments = mailContent.Attachments;
             var from = mailContent.From;
