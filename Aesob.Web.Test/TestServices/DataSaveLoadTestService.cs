@@ -15,13 +15,14 @@ namespace Aesob.Web.Test.TestServices
             _random = new Random();
         }
 
-        public void Start()
+        public async Task Start()
         {
             for(int i = 0; i < 10; i++)
             {
                 RunTest();
             }
 
+            await Task.Delay(1);
         }
 
         private void RunTest()
@@ -97,12 +98,14 @@ namespace Aesob.Web.Test.TestServices
             return true;
         }
 
-        public void Stop()
+        public async Task Stop()
         {
-        }
+			await Task.Delay(1);
+		}
 
-        public void Update(float dt)
+		public async Task Update(float dt)
         {
+			await Task.Delay(1);
         }
     }
 }

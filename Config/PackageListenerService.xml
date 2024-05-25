@@ -6,6 +6,8 @@
     <Parameter Name="Sifre" Value="Tipitip@45" />
     <Parameter Name="EndPoint" Value="https://ws.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php" />
     <Parameter Name="PackageCheckInterval" Value="300" />
+	<Parameter Name="AesobDocsLoginUsername" Value="kep_yonlendirme" />
+	<Parameter Name="AesobDocsLoginPassword" Value="zv7p28paQHvSe5InW13A5mnW1iqfKMk72" />
     <ListParameter Name="TargetEmails">
 		<SubParameter Value="kursad_fb_96@hotmail.com" />
 		<SubParameter Value="fatihh@msn.com" />

@@ -13,7 +13,7 @@ namespace Aesob.KEP.Services
     {
         private IAesobService _thisAsInterface;
 
-        public void Start()
+        public async Task Start()
         {
             _thisAsInterface = this;
 
@@ -33,24 +33,23 @@ namespace Aesob.KEP.Services
 
             var httpClient = new HttpClient();
 
-            var postTask = httpClient.PostAsync("https://aesob.org.tr/api/SMS/MassSMS", jsonContent);
+            var postResult = await httpClient.PostAsync("https://aesob.org.tr/api/SMS/MassSMS", jsonContent);
             //var postTask = httpClient.PostAsync("https://localhost:44397/api/SMS/MassSMS", jsonContent);
-
-            postTask.Wait();
-            var postResult = postTask.Result;
 
             Debug.Print("EMail Yönlendirme Sonucu: " + postResult.Content);
         }
 
-        public void Stop()
+        public async Task Stop()
         {
+            await Task.Delay(1);
         }
 
-        public void Update(float dt)
+        public async Task Update(float dt)
         {
-        }
+			await Task.Delay(1);
+		}
 
-        private string GetSmsXml(string auth, string content)
+		private string GetSmsXml(string auth, string content)
         {
             XmlDocument doc = new XmlDocument();
             var smsData = doc.CreateElement("SmsData");

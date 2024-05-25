@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.ServiceModel;
 using System.Text;
 using System.Xml;
+using Aesob.Docs.Data;
+using Aesob.Docs.Services;
 using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
@@ -38,7 +40,7 @@ namespace KepStandalone
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 
-        void IAesobService.Start()
+        async Task IAesobService.Start()
         {
             var configs = GetWebServiceConfigs();
 
@@ -47,6 +49,9 @@ namespace KepStandalone
             var password = _thisAsInterface.GetConfig("Parola").Value;
             var passCode = _thisAsInterface.GetConfig("Sifre").Value;
             var endpointAddress = _thisAsInterface.GetConfig("EndPoint").Value;
+
+            var aesobDocsLoginUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
+            var aesobDocsLoginPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
 
             _checkIntervalInSeconds = 60f;
             if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval").Value, out var checkInterval))
@@ -68,17 +73,32 @@ namespace KepStandalone
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
             _checkTimer = _checkIntervalInSeconds;
-        }
 
-        void IAesobService.Update(float dt)
+            var loginResult = await UserService.TryLogin(aesobDocsLoginUsername, aesobDocsLoginPassword);
+            if(loginResult?.IsSuccess == true)
+            {
+                Debug.Print($"Logged in as : {aesobDocsLoginUsername}");
+				User.Current = loginResult.User;
+			}
+            else
+            {
+				Debug.Print($"Faile to login as: {aesobDocsLoginUsername}\n{loginResult?.ErrorMessage}");
+			}
+		}
+
+        async Task IAesobService.Update(float dt)
         {
-            PackageTick(dt);
+            await PackageTick(dt);
+
+            await Task.Delay(1);
         }
 
-        void IAesobService.Stop()
+        async Task IAesobService.Stop()
         {
             _eYazisma = null;
             _checkTimer = 0f;
+
+            await Task.Delay(1);
         }
 
         private IServiceData GetDailyEmailData(DateTime dateOfDay)
@@ -98,18 +118,18 @@ namespace KepStandalone
             return data;
         }
 
-        private void PackageTick(float dt)
+        private async Task PackageTick(float dt)
         {
             _checkTimer += dt;
 
             if (_checkTimer > _checkIntervalInSeconds)
             {
-                TryRegisterNewPackages();
+                await TryRegisterNewPackages();
                 _checkTimer = 0f;
             }
         }
 
-        private void TryRegisterNewPackages()
+        private async Task TryRegisterNewPackages()
         {
             var packages = CheckForPackages();
 
@@ -119,9 +139,24 @@ namespace KepStandalone
 
                 for (int i = 0; i < packages.Count; i++)
                 {
-                    MailPackageToReceivers(packages[i]);
-                    AddPackageToEDYS(packages[i]);
-                }
+                    try
+                    {
+                        MailPackageToReceivers(packages[i]);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Print($"Failed to send package to receivers: {e.Message}");
+                    }
+
+                    try
+                    {
+						await AddPackageToEDYS(packages[i]);
+					}
+					catch (Exception e)
+                    {
+						Debug.Print($"Failed to add package to document system: {e.Message}");
+					}
+				}
             }
         }
 
@@ -321,15 +356,73 @@ namespace KepStandalone
             return result;
         }
 
-        private void AddPackageToEDYS(PackageMailContent packageData)
+        private async Task AddPackageToEDYS(PackageMailContent packageData)
         {
             Debug.Print("Adding package to EDYS");
 
-            //TODO_Kursad: Add packages
+            var sourcesResult = await DocumentService.GetDocumentSources();
+            if(sourcesResult?.IsSuccessful != true)
+            {
+                Debug.Print($"Failed to retrieve sources: {sourcesResult.ErrorMessage}");
+                return;
+            }
+
+            var source = sourcesResult.Value?.FirstOrDefault(s => s.Id == 114);
+            if(source == null)
+            {
+                Debug.Print($"Failed to retrieve KEP source");
+                return;
+            }
+
+            var files = new List<AesobDocumentFile>();
+            foreach(var attachment in packageData.Attachments)
+            {
+                var aesobDocumentFile = new AesobDocumentFile()
+                {
+                    Name = $"Kep İletisi Eki: {packageData.KepSıraNo} - {attachment.Name}",
+                    Description = $"{packageData.KepSıraNo} no'lu kep iletisi eki",
+                    FileContent = attachment.Value,
+                    FileSize = attachment.Value.Length,
+                    FileName = attachment.Name,
+                    VisibleFileName = attachment.Name
+                };
+
+                files.Add(aesobDocumentFile);
+            }
+
+            var document = new AesobDocument()
+            {
+                Name = packageData.Subject,
+                Description = packageData.Content,
+                Files = files.ToArray(),
+                IsOutgoing = false,
+                UploadDate = DateTime.Now,
+                LastRevisionDate = DateTime.Now,
+                Source = source,
+                SourceId = source.Id,
+                OwnerUserId = 10
+            };
+
+            var uploadResult = await DocumentService.UploadDocument(document);
+            if (uploadResult?.IsSuccessful == true)
+            {
+                Debug.Print($"Document successfully added to document server. ({document.Name})");
+            }
+            else
+            {
+                Debug.Print($"Failed to add document to document server: {uploadResult?.ErrorMessage}");
+            }
         }
 
         private void MailPackageToReceivers(PackageMailContent downloadedPackage)
         {
+#if DEBUG
+            if(downloadedPackage != null)
+            {
+                Debug.Print("Skipping mail redirection in debug mode...");
+                return;
+            }
+#endif
             string mailXML = GetXMLStringFromMailData("AesobEmailEncryptionProtocol123456789",
                 "Kep Yönlendirme",
                 downloadedPackage,
