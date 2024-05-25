@@ -141,7 +141,7 @@ namespace KepStandalone
                 {
                     try
                     {
-                        MailPackageToReceivers(packages[i]);
+                        await MailPackageToReceivers(packages[i]);
                     }
                     catch (Exception e)
                     {
@@ -414,7 +414,7 @@ namespace KepStandalone
             }
         }
 
-        private void MailPackageToReceivers(PackageMailContent downloadedPackage)
+        private async Task MailPackageToReceivers(PackageMailContent downloadedPackage)
         {
 #if DEBUG
             if(downloadedPackage != null)
@@ -433,13 +433,10 @@ namespace KepStandalone
             var jsonContent = JsonContent.Create(encodedString, new MediaTypeHeaderValue("application/json"));
 
 #if DEBUG
-            var postTask = _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
+            var postResult = await _httpClient.PostAsync("https://localhost:44397/api/Email/Redirect", jsonContent);
 #else
-            var postTask = _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
+            var postResult = await _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
 #endif
-
-            postTask.Wait();
-            var postResult = postTask.Result;
 
             if(postResult.StatusCode == System.Net.HttpStatusCode.OK)
             {
