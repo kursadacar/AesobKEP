@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.ServiceModel;
 using System.Text;
@@ -11,7 +10,6 @@ using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
 using Aesob.Web.Library.Email;
 using Aesob.Web.Library.Encyrption;
-using Aesob.Web.Library.Path;
 using Aesob.Web.Library.Service;
 using Microsoft.IdentityModel.Tokens;
 using Tr.Com.Eimza.EYazisma;
@@ -50,9 +48,6 @@ namespace KepStandalone
             var passCode = _thisAsInterface.GetConfig("Sifre").Value;
             var endpointAddress = _thisAsInterface.GetConfig("EndPoint").Value;
 
-            var aesobDocsLoginUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
-            var aesobDocsLoginPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
-
             _checkIntervalInSeconds = 60f;
             if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval").Value, out var checkInterval))
             {
@@ -71,19 +66,9 @@ namespace KepStandalone
             Debug.Print("Paket Tarama Aralığı: " + new TimeSpan(0, 0, (int)_checkIntervalInSeconds));
 
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
-
             _checkTimer = _checkIntervalInSeconds;
 
-            var loginResult = await UserService.TryLogin(aesobDocsLoginUsername, aesobDocsLoginPassword);
-            if(loginResult?.IsSuccess == true)
-            {
-                Debug.Print($"Logged in as : {aesobDocsLoginUsername}");
-				User.Current = loginResult.User;
-			}
-            else
-            {
-				Debug.Print($"Faile to login as: {aesobDocsLoginUsername}\n{loginResult?.ErrorMessage}");
-			}
+            await LoginToDocsService();
 		}
 
         async Task IAesobService.Update(float dt)
@@ -100,6 +85,23 @@ namespace KepStandalone
 
             await Task.Delay(1);
         }
+
+        private async Task LoginToDocsService()
+        {
+			var aesobDocsLoginUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
+			var aesobDocsLoginPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
+
+			var loginResult = await UserService.TryLogin(aesobDocsLoginUsername, aesobDocsLoginPassword);
+			if (loginResult?.IsSuccess == true)
+			{
+				Debug.Print($"Logged in as : {aesobDocsLoginUsername}");
+				User.Current = loginResult.User;
+			}
+			else
+			{
+				Debug.Print($"Faile to login as: {aesobDocsLoginUsername}\n{loginResult?.ErrorMessage}");
+			}
+		}
 
         private IServiceData GetDailyEmailData(DateTime dateOfDay)
         {
@@ -124,12 +126,57 @@ namespace KepStandalone
 
             if (_checkTimer > _checkIntervalInSeconds)
             {
+                await TryRemoveOldPackages();
                 await TryRegisterNewPackages();
                 _checkTimer = 0f;
             }
         }
 
-        private async Task TryRegisterNewPackages()
+        private async Task TryRemoveOldPackages()
+        {
+            try
+            {
+                await Task.Delay(10);
+
+                var startDate = DateTime.Now.AddYears(-10);
+                var endDate = DateTime.Now.AddMonths(-3);
+
+				var foundPackagesData = _eYazisma.PaketSorgula(startDate, endDate);
+				if (foundPackagesData != null && foundPackagesData.Durum.Length > 0 && foundPackagesData.Durum[0] == 0)
+				{
+					Debug.Print($"Found ({foundPackagesData.KepId.Length}) old packages to remove. ({startDate - endDate})");
+					for (int i = 0; i < foundPackagesData.KepId.Length; i++)
+					{
+                        var kepId = foundPackagesData.KepId[i];
+                        var kepSiraNo = foundPackagesData.KepSiraNo[i];
+
+						Debug.Print($"Removing package with no: {kepSiraNo}");
+						try
+						{
+							var removeResult = _eYazisma.PaketSil(kepId);
+                            if(removeResult?.Durum == 0)
+                            {
+                                Debug.Print($"Package removed: {kepSiraNo}");
+                            }
+                            else
+                            {
+                                Debug.Print($"Failed to remove package: {kepSiraNo}. {removeResult?.HataAciklama}");
+                            }
+						}
+                        catch (Exception e)
+                        {
+                            Debug.Print($"Failed to remove package: {kepSiraNo} {e.Message}");
+                        }
+					}
+				}
+			}
+            catch (Exception e)
+            {
+                Debug.Print($"Failed to remove old packages: {e.Message}");
+            }
+        }
+
+		private async Task TryRegisterNewPackages()
         {
             var packages = CheckForPackages();
 
@@ -141,15 +188,18 @@ namespace KepStandalone
                 {
                     try
                     {
+                        Debug.Print($"Sending package emails: {packages[i].KepSıraNo}");
                         await MailPackageToReceivers(packages[i]);
                     }
                     catch (Exception e)
                     {
                         Debug.Print($"Failed to send package to receivers: {e.Message}");
+                        continue;
                     }
 
                     try
                     {
+                        Debug.Print($"Adding package to document system: {packages[i].KepSıraNo}");
 						await AddPackageToEDYS(packages[i]);
 					}
 					catch (Exception e)
@@ -167,7 +217,7 @@ namespace KepStandalone
 
             var packages = new List<PackageMailContent>();
 
-            Debug.Print($"Paketler Taranıyor...");
+            //Debug.Print($"Paketler Taranıyor...");
 
             var foundPackagesData = _eYazisma.PaketSorgula(yesterday, today.AddDays(1));
 
@@ -180,31 +230,31 @@ namespace KepStandalone
                 var todaysData = GetDailyEmailData(today);
                 var yesterdaysData = GetDailyEmailData(yesterday);
 
-                foreach (var kepSiraNo in foundPackagesData.KepSiraNo)
+                for(int i = 0; i < foundPackagesData.KepId.Length; i++)
                 {
-                    var siraNo = kepSiraNo ?? -1;
+                    var kepId = foundPackagesData.KepId[i];
+                    var kepSiraNo = foundPackagesData.KepSiraNo[i].ToString();
 
-                    try
-                    {
-                        var todaysSentMailLookup = todaysData?.SubData.Select(s => s.Value);
-                        var yesterdaysSentMailLookup = yesterdaysData?.SubData.Select(s => s.Value);
-                        var siraNoString = siraNo.ToString();
+					try
+					{
+						var todaysSentMailLookup = todaysData?.SubData.Select(s => s.Value);
+						var yesterdaysSentMailLookup = yesterdaysData?.SubData.Select(s => s.Value);
 
-                        if (todaysSentMailLookup?.Contains(siraNoString) != true
-                            && yesterdaysSentMailLookup?.Contains(siraNoString) != true)
-                        {
-                            var downloadResult = _eYazisma.PaketIndir(siraNo, "", EYazismaPart.ALL);
-                            var package = GetPackagesFrom(downloadResult);
-                            package.ForEach(p => p.KepSıraNo = siraNoString);
+						if (todaysSentMailLookup?.Contains(kepSiraNo) != true
+							&& yesterdaysSentMailLookup?.Contains(kepSiraNo) != true)
+						{
+							var downloadResult = _eYazisma.PaketIndir(kepId, "", EYazismaPart.ALL);
+							var package = GetPackagesFrom(downloadResult);
+							package.ForEach(p => p.KepSıraNo = kepSiraNo);
 
-                            packages.AddRange(package);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.Print($"{kepSiraNo} numaralı paketi ayıklarken hata:\n{e.Message}");
-                    }
-                }
+							packages.AddRange(package);
+						}
+					}
+					catch (Exception e)
+					{
+						Debug.Print($"{kepSiraNo} numaralı paketi ayıklarken hata:\n{e.Message}");
+					}
+				}
             }
 
             if(packages.Count == 0)
@@ -360,10 +410,30 @@ namespace KepStandalone
         {
             Debug.Print("Adding package to EDYS");
 
+            if(User.Current == null || User.Current.Id < 0)
+            {
+                Debug.Print($"User was invalid, trying to login again.");
+
+                for(int i = 0; i < 5; i++)
+                {
+                    Debug.Print($"Login attempt: {i + 1}");
+                    await LoginToDocsService();
+                    if(User.Current?.Id >= 0)
+                    {
+                        break;
+                    }
+				}
+
+                if(User.Current == null || User.Current.Id < 0)
+                {
+					Debug.Print($"Login attempts failed.");
+				}
+			}
+
             var sourcesResult = await DocumentService.GetDocumentSources();
             if(sourcesResult?.IsSuccessful != true)
             {
-                Debug.Print($"Failed to retrieve sources: {sourcesResult.ErrorMessage}");
+                Debug.Print($"Failed to retrieve sources from docs: {sourcesResult.ErrorMessage}");
                 return;
             }
 

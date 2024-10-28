@@ -1,0 +1,10 @@
+﻿<ServiceConfig ServiceName="KepBackupService">
+  <Parameters>
+    <Parameter Name="Mode" Value="WRITE" />
+    <Parameter Name="Hesap" Value="antalyaesnafvesanatkarlarodalaribirligi@hs01.kep.tr" />
+    <Parameter Name="TC" Value="33727133874" />
+    <Parameter Name="Parola" Value="371968425" />
+    <Parameter Name="Sifre" Value="Tipitip@45" />
+    <Parameter Name="EndPoint" Value="https://ws.hs01.kep.tr/KepEYazismaV1.1/KepEYazismaCOREWSDL.php" />
+  </Parameters>
+</ServiceConfig>
