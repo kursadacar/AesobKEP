@@ -444,27 +444,10 @@ namespace KepStandalone
                 return;
             }
 
-            var files = new List<AesobDocumentFile>();
-            foreach(var attachment in packageData.Attachments)
-            {
-                var aesobDocumentFile = new AesobDocumentFile()
-                {
-                    Name = $"Kep İletisi Eki: {packageData.KepSıraNo} - {attachment.Name}",
-                    Description = $"{packageData.KepSıraNo} no'lu kep iletisi eki",
-                    FileContent = attachment.Value,
-                    FileSize = attachment.Value.Length,
-                    FileName = attachment.Name,
-                    VisibleFileName = attachment.Name
-                };
-
-                files.Add(aesobDocumentFile);
-            }
-
-            var document = new AesobDocument()
+            var document = new Document()
             {
                 Name = packageData.Subject,
                 Description = packageData.Content,
-                Files = files.ToArray(),
                 IsOutgoing = false,
                 UploadDate = DateTime.Now,
                 LastRevisionDate = DateTime.Now,
@@ -472,6 +455,26 @@ namespace KepStandalone
                 SourceId = source.Id,
                 OwnerUserId = 10
             };
+
+            var files = new List<DocumentFile>();
+            foreach(var attachment in packageData.Attachments)
+            {
+                var aesobDocumentFile = new DocumentFile()
+                {
+                    Name = $"Kep İletisi Eki: {packageData.KepSıraNo} - {attachment.Name}",
+                    Description = $"{packageData.KepSıraNo} no'lu kep iletisi eki",
+                    FileContent = attachment.Value,
+                    FileSize = attachment.Value.Length,
+                    FileName = attachment.Name,
+                    VisibleFileName = attachment.Name,
+                    Document = document,
+                    DocumentId = -1,
+                };
+
+                files.Add(aesobDocumentFile);
+            }
+
+            document.DocumentFiles = files.ToArray();
 
             var uploadResult = await DocumentService.UploadDocument(document);
             if (uploadResult?.IsSuccessful == true)
