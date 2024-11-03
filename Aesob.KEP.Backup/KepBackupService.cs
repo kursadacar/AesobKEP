@@ -1,6 +1,8 @@
 ﻿using System.IO.Packaging;
 using System.ServiceModel;
 using System.Xml;
+using Aesob.Docs.Services;
+using Aesob.KEP.Library;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
 using Aesob.Web.Library.Service;
@@ -16,6 +18,10 @@ namespace Aesob.KEP.Backup
 
 		private HttpClient _httpClient;
 		private EYazismaApi _eYazisma;
+
+		private bool _uploadDocuments;
+		private string _docsUsername;
+		private string _docsPassword;
 
 		public KepBackupService()
 		{
@@ -33,6 +39,9 @@ namespace Aesob.KEP.Backup
 			var passCode = _thisAsInterface.GetConfig("Sifre").Value;
 			var endpointAddress = _thisAsInterface.GetConfig("EndPoint").Value;
 			var mode = _thisAsInterface.GetConfig("Mode").Value;
+			_uploadDocuments = _thisAsInterface.GetConfig("UploadDocuments").Value == "true";
+			_docsUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
+			_docsPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
 
 			_eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
 
@@ -45,11 +54,11 @@ namespace Aesob.KEP.Backup
 
 			if (mode == "READ")
 			{
-				ReadBackups(downloadDirectory);
+				await ReadBackups(downloadDirectory);
 			}
 			else if(mode == "WRITE")
 			{
-				DownloadAndWriteBackups(downloadDirectory);
+				await DownloadAndWriteBackups(downloadDirectory);
 			}
 			else
 			{
@@ -57,8 +66,13 @@ namespace Aesob.KEP.Backup
 			}
 		}
 
-		private void ReadBackups(string downloadDirectory)
+		private async Task ReadBackups(string downloadDirectory)
 		{
+#if DEBUG
+			//await DocumentUtilities.LoginToDocsService(_docsUsername, _docsPassword);
+			//var clearResult = await DocumentService.ClearDuplicates();
+#endif
+
 			Debug.Print($"Reading backups...");
 
 			var files = Directory.GetFiles(downloadDirectory);
@@ -66,11 +80,21 @@ namespace Aesob.KEP.Backup
 			{
 				var buffer = File.ReadAllBytes(file);
 				var content = BitDeserializeContent(buffer);
+
+				if (_uploadDocuments)
+				{
+					var mailContents = PackageUtilities.GetMailContentFor(_eYazisma, content);
+					foreach (var mailContent in mailContents)
+					{
+						await DocumentUtilities.AddPackageToEDYS(mailContent, _docsUsername, _docsPassword);
+					}
+				}
 			}
+
+			Debug.Print($"Finished reading backups...");
 		}
 
-
-		private void DownloadAndWriteBackups(string downloadDirectory)
+		private async Task DownloadAndWriteBackups(string downloadDirectory)
 		{
 			Debug.Print($"Downloading and writing backups...");
 
@@ -88,11 +112,11 @@ namespace Aesob.KEP.Backup
 				var endDate = startDate;
 				endDate = endDate.AddMonths(3);
 
-				CheckPackagesBetweenDates(startDate, endDate, downloadDirectory);
+				await CheckPackagesBetweenDates(startDate, endDate, downloadDirectory);
 			}
 		}
 
-		private void CheckPackagesBetweenDates(in DateTime startDate, in DateTime endDate, string downloadDirectory)
+		private async Task CheckPackagesBetweenDates(DateTime startDate, DateTime endDate, string downloadDirectory)
 		{
 			Debug.Print($"Retrieving packages between dates: {startDate} - {endDate}");
 
@@ -136,7 +160,7 @@ namespace Aesob.KEP.Backup
 				}
 
 
-				var packageContent = CreatePackageFor(downloadResult.EyazismaPaketi);
+				var packageContent = CreatePackageFor(downloadResult);
 				var buffer = BitSerializeContent(packageContent.ToArray());
 				var deserializedContent = BitDeserializeContent(buffer);
 
@@ -158,16 +182,30 @@ namespace Aesob.KEP.Backup
 					writer.Write(buffer);
 				}
 
+				if (_uploadDocuments)
+				{
+					var mailContents = PackageUtilities.GetMailContentFor(_eYazisma, packageContent);
+					foreach (var mailContent in mailContents)
+					{
+						await DocumentUtilities.AddPackageToEDYS(mailContent, _docsUsername, _docsPassword);
+					}
+				}
+
 				Debug.Print($"Save package to file: {packagePath}");
 			}
 		}
 
-		private KepPackage[] CreatePackageFor(base64Binary[] data)
+		private KepPackage[] CreatePackageFor(EyPaketIndirSonuc downloadResult)
 		{
-			KepPackage[] packageContent = new KepPackage[data.Length];
+			if(downloadResult?.EyazismaPaketi == null)
+			{
+				return null;
+			}
+
+			KepPackage[] packageContent = new KepPackage[downloadResult.EyazismaPaketi.Length];
 			for (int i = 0; i < packageContent.Length; i++)
 			{
-				var downloadedData = data[i];
+				var downloadedData = downloadResult.EyazismaPaketi[i];
 				KepPackage package = new KepPackage(downloadedData.contentType, downloadedData.fileName, downloadedData.Value);
 				packageContent[i] = package;
 			}

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Schema;
 using System.Xml.Serialization;
 
-namespace Aesob.KEP.Backup
+namespace Aesob.KEP.Library
 {
 	[Serializable]
 	public class KepPackage

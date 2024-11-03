@@ -1,7 +1,7 @@
 ﻿using Aesob.Web.Library.Email;
 using Tr.Com.Eimza.EYazisma;
 
-namespace Aesob.KEP.Services
+namespace Aesob.KEP.Library
 {
     public class PackageMailContent
     {
@@ -26,5 +26,7 @@ namespace Aesob.KEP.Services
         public EYazismaPaketTur MailType { get; set; }
 
         public string MailTypeId { get; set; }
+
+        public bool IsOutgoing { get; set; }
     }
 }

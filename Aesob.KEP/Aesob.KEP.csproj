@@ -9,10 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AesobDocs\Aesob.Docs.Library\Aesob.Docs.Library.csproj" />
-    <ProjectReference Include="..\..\AesobDocs\Aesob.Docs.Services\Aesob.Docs.Services.csproj" />
+    <ProjectReference Include="..\..\AesobMain\Source\Application\AesobDocs\Aesob.Docs.Data\Aesob.Docs.Data.csproj" />
+    <ProjectReference Include="..\..\AesobMain\Source\Application\AesobDocs\Aesob.Docs.Library\Aesob.Docs.Library.csproj" />
+    <ProjectReference Include="..\..\AesobMain\Source\Application\AesobDocs\Aesob.Docs.Services\Aesob.Docs.Services.csproj" />
     <ProjectReference Include="..\..\AesobWebCore\Aesob.Web.Core\Aesob.Web.Core.csproj" />
     <ProjectReference Include="..\..\AesobWebCore\Aesob.Web.Library\Aesob.Web.Library.csproj" />
+    <ProjectReference Include="..\Aesob.KEP.Library\Aesob.KEP.Library.csproj" />
     <ProjectReference Include="..\Dependencies\Cbddo.eYazisma\Cbddo.eYazisma.csproj" />
     <ProjectReference Include="..\Dependencies\Dpt.eYazisma\Dpt.eYazisma.csproj" />
     <ProjectReference Include="..\Dependencies\PTTKEP_Source\PTT.KEP.API.csproj" />

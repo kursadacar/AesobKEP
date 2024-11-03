@@ -5,6 +5,7 @@ using System.Text;
 using System.Xml;
 using Aesob.Docs.Data;
 using Aesob.Docs.Services;
+using Aesob.KEP.Library;
 using Aesob.KEP.Services;
 using Aesob.Web.Core.Public;
 using Aesob.Web.Library;
@@ -30,6 +31,9 @@ namespace KepStandalone
 
         private List<string> _targetEmails = new List<string>();
 
+        private string _docsUsername;
+        private string _docsPassword;
+
         public PackageListenerService()
         {
             _httpClient = new HttpClient();
@@ -48,7 +52,10 @@ namespace KepStandalone
             var passCode = _thisAsInterface.GetConfig("Sifre").Value;
             var endpointAddress = _thisAsInterface.GetConfig("EndPoint").Value;
 
-            _checkIntervalInSeconds = 60f;
+			_docsUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
+			_docsPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
+
+			_checkIntervalInSeconds = 60f;
             if(float.TryParse(_thisAsInterface.GetConfig("PackageCheckInterval").Value, out var checkInterval))
             {
                 _checkIntervalInSeconds = checkInterval;
@@ -68,7 +75,8 @@ namespace KepStandalone
             _eYazisma = new EYazismaApi(account, id, password, passCode, configs, endpointAddress);
             _checkTimer = _checkIntervalInSeconds;
 
-            await LoginToDocsService();
+
+            await DocumentUtilities.LoginToDocsService(_docsUsername, _docsPassword);
 		}
 
         async Task IAesobService.Update(float dt)
@@ -85,23 +93,6 @@ namespace KepStandalone
 
             await Task.Delay(1);
         }
-
-        private async Task LoginToDocsService()
-        {
-			var aesobDocsLoginUsername = _thisAsInterface.GetConfig("AesobDocsLoginUsername").Value;
-			var aesobDocsLoginPassword = _thisAsInterface.GetConfig("AesobDocsLoginPassword").Value;
-
-			var loginResult = await UserService.TryLogin(aesobDocsLoginUsername, aesobDocsLoginPassword);
-			if (loginResult?.IsSuccess == true)
-			{
-				Debug.Print($"Logged in as : {aesobDocsLoginUsername}");
-				User.Current = loginResult.User;
-			}
-			else
-			{
-				Debug.Print($"Faile to login as: {aesobDocsLoginUsername}\n{loginResult?.ErrorMessage}");
-			}
-		}
 
         private IServiceData GetDailyEmailData(DateTime dateOfDay)
         {
@@ -178,18 +169,24 @@ namespace KepStandalone
 
 		private async Task TryRegisterNewPackages()
         {
-            var packages = CheckForPackages();
+            await CheckAndRegisterPackagesAux(true);
+            await CheckAndRegisterPackagesAux(false);
+        }
 
-            if (packages.Count > 0)
+        private async Task CheckAndRegisterPackagesAux(bool isInbox)
+        {
+            var foundPackages = CheckForPackages(isInbox);
+
+            if (foundPackages.Count > 0)
             {
-                Debug.Print("Found " + packages.Count + " new packages");
+                Debug.Print("Found " + foundPackages.Count + " new incoming packages");
 
-                for (int i = 0; i < packages.Count; i++)
+                for (int i = 0; i < foundPackages.Count; i++)
                 {
                     try
                     {
-                        Debug.Print($"Sending package emails: {packages[i].KepSıraNo}");
-                        await MailPackageToReceivers(packages[i]);
+                        Debug.Print($"Sending package emails: {foundPackages[i].KepSıraNo}");
+                        await MailPackageToReceivers(foundPackages[i], isInbox);
                     }
                     catch (Exception e)
                     {
@@ -199,27 +196,34 @@ namespace KepStandalone
 
                     try
                     {
-                        Debug.Print($"Adding package to document system: {packages[i].KepSıraNo}");
-						await AddPackageToEDYS(packages[i]);
-					}
-					catch (Exception e)
+                        Debug.Print($"Adding package to document system: {foundPackages[i].KepSıraNo}");
+
+                        await DocumentUtilities.AddPackageToEDYS(foundPackages[i], _docsUsername, _docsPassword);
+                    }
+                    catch (Exception e)
                     {
-						Debug.Print($"Failed to add package to document system: {e.Message}");
-					}
+                        Debug.Print($"Failed to add package to document system: {e.Message}");
+                    }
+
+					var todaysData = GetDailyEmailData(DateTime.Now);
+
+					var dataName = isInbox ? "RedirectedKepMail" : "Out_RedirectedKepMail";
+					todaysData.AddSubData(_thisAsInterface.CreateServiceData(dataName, foundPackages[i].KepSıraNo));
+					_thisAsInterface.SaveData();
 				}
             }
         }
 
-        private List<PackageMailContent> CheckForPackages()
+        private List<PackageMailContent> CheckForPackages(bool checkInbox)
         {
             var today = DateTime.Now;
             var yesterday = today.AddDays(-1);
 
-            var packages = new List<PackageMailContent>();
+            var mailContent = new List<PackageMailContent>();
 
             //Debug.Print($"Paketler Taranıyor...");
 
-            var foundPackagesData = _eYazisma.PaketSorgula(yesterday, today.AddDays(1));
+			var foundPackagesData = _eYazisma.PaketSorgula(yesterday, today.AddDays(1), checkInbox ? "INBOX" : "OUTBOX");
 
             if (foundPackagesData == null)
             {
@@ -237,17 +241,19 @@ namespace KepStandalone
 
 					try
 					{
-						var todaysSentMailLookup = todaysData?.SubData.Select(s => s.Value);
-						var yesterdaysSentMailLookup = yesterdaysData?.SubData.Select(s => s.Value);
+						var todaysSentMailLookup = checkInbox ? todaysData?.SubData.Where(s => s.Name == "RedirectedKepMail") : todaysData?.SubData.Where(s => s.Name == "Out_RedirectedKepMail");
+						var yesterdaysSentMailLookup = checkInbox ? yesterdaysData?.SubData.Where(s => s.Name == "RedirectedKepMail") : yesterdaysData?.SubData.Where(s => s.Name == "Out_RedirectedKepMail");
 
-						if (todaysSentMailLookup?.Contains(kepSiraNo) != true
-							&& yesterdaysSentMailLookup?.Contains(kepSiraNo) != true)
+                        if (todaysSentMailLookup?.Any(m => m.Value == kepSiraNo) != true
+							&& yesterdaysSentMailLookup?.Any(m => m.Value == kepSiraNo) != true)
 						{
 							var downloadResult = _eYazisma.PaketIndir(kepId, "", EYazismaPart.ALL);
-							var package = GetPackagesFrom(downloadResult);
+                            var packages = PackageUtilities.CreatePackageFor(downloadResult);
+                            var package = PackageUtilities.GetMailContentFor(_eYazisma, packages);
+
 							package.ForEach(p => p.KepSıraNo = kepSiraNo);
 
-							packages.AddRange(package);
+							mailContent.AddRange(package);
 						}
 					}
 					catch (Exception e)
@@ -257,242 +263,25 @@ namespace KepStandalone
 				}
             }
 
-            if(packages.Count == 0)
+            if(mailContent.Count == 0)
             {
                 Debug.Print("Paket verisi alındı, yeni paket bulunmadı...");
             }
 
-            return packages;
+            return mailContent;
         }
 
-        private List<PackageMailContent> GetPackagesFrom(EyPaketIndirSonuc downloadResult)
-        {
-            List<PackageMailContent> packages = new List<PackageMailContent>();
-
-            if (downloadResult?.EyazismaPaketi != null)
-            {
-                foreach (var mailPckg in downloadResult.EyazismaPaketi)
-                {
-                    var base64 = Convert.ToBase64String(mailPckg.Value);
-                    var smime = _eYazisma.SmimeParcala(base64);
-
-                    foreach(var mimeAttachment in smime.Ekler)
-                    {
-                        var mimeValue = _eYazisma.SmimeParcala(Convert.ToBase64String(mimeAttachment.Degeri));
-
-                        List<MailAttachment> attachments = new List<MailAttachment>();
-
-                        foreach(var ek in mimeValue.Ekler)
-                        {
-                            if (ek.Adi.EndsWith(".eyp"))
-                            {
-                                var memoryStream = new MemoryStream(ek.Degeri);
-
-                                List<Ek> ekler = new List<Ek>();
-                                Stream ustYaziStream = null;
-                                string dosyaAdi = ek.Adi;
-
-                                try
-                                {
-                                    var paket = Cbddo.eYazisma.Tipler.Paket.Ac(memoryStream, Cbddo.eYazisma.Tipler.PaketModu.Ac);
-
-                                    var ustVeriEkler = paket.Ustveri?.EkleriAl();
-                                    if (ustVeriEkler != null)
-                                    {
-                                        foreach (var ustVeriEk in ustVeriEkler)
-                                        {
-                                            var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
-                                            var ekPaketMs = new MemoryStream();
-                                            ekPaket.CopyTo(ekPaketMs);
-                                            var ekPaketBuffer = ekPaketMs.ToArray();
-                                            ekPaketMs.Dispose();
-
-                                            ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
-                                        }
-                                    }
-
-                                    ustYaziStream = paket.UstYaziAl();
-                                    dosyaAdi = paket.Ustveri.DosyaAdiAl();
-                                }
-                                catch
-                                {
-                                    try
-                                    {
-                                        var paket = Dpt.eYazisma.Tipler.Paket.Ac(memoryStream, Dpt.eYazisma.Tipler.PaketModu.Ac);
-
-                                        var ustVeriEkler = paket.Ustveri?.EkleriAl();
-                                        if(ustVeriEkler != null)
-                                        {
-                                            foreach (var ustVeriEk in ustVeriEkler)
-                                            {
-                                                var ekPaket = paket.EkAl(new Guid(ustVeriEk.Id.Value));
-
-                                                var ekPaketMs = new MemoryStream();
-                                                ekPaket.CopyTo(ekPaketMs);
-                                                var ekPaketBuffer = ekPaketMs.ToArray();
-                                                ekPaketMs.Dispose();
-
-                                                ekler.Add(new Ek(ustVeriEk.DosyaAdi, ekPaketBuffer));
-                                            }
-                                        }
-
-                                        ustYaziStream = paket.UstYaziAl();
-                                        dosyaAdi = paket.Ustveri.DosyaAdiAl();
-                                    }
-                                    catch(Exception ex)
-                                    {
-                                        Debug.Print($"Ek işlenirken bir hata oluştu: {ex}");
-                                    }
-                                }
-
-                                if(ustYaziStream != null)
-                                {
-                                    MemoryStream ms = new MemoryStream();
-                                    ustYaziStream.CopyTo(ms);
-                                    var bytes = ms.ToArray();
-
-                                    var ustVeriAttachments = CreateAttachmentFromMultipleEks(ekler);
-                                    var attachment = CreateAttachmentFromEk(new Ek(dosyaAdi, bytes));
-
-                                    attachments.Add(attachment);
-                                    attachments.AddRange(ustVeriAttachments);
-                                }
-                            }
-                            else
-                            {
-                                attachments.Add(CreateAttachmentFromEk(ek));
-                            }
-                        }
-
-                        if(mimeValue != null && mimeValue.Durum == 0)
-                        {
-                            var mailContent = new PackageMailContent()
-                            {
-                                Cc = mimeValue.Cc,
-                                Bcc = mimeValue.Bcc,
-                                Attachments = attachments,
-                                Content = string.IsNullOrEmpty(mimeValue.Icerik) ? smime.Icerik : mimeValue.Icerik,
-                                From = mimeValue.Kimden,
-                                To = mimeValue.Kime,
-                                ImzaP7s = CreateAttachmentFromEk(mimeValue.ImzaP7s),
-                                MailType = mimeValue.MailTipi,
-                                MailTypeId = mimeValue.MailTipId,
-                                Subject = mimeValue.Konu
-                            };
-
-                            packages.Add(mailContent);
-                        }
-                    }
-                }
-            }
-
-            return packages;
-        }
-
-        private static MailAttachment CreateAttachmentFromEk(Ek ek)
-        {
-            return new MailAttachment(ek.Adi, ek.Degeri);
-        }
-
-        private static List<MailAttachment> CreateAttachmentFromMultipleEks(List<Ek> eks)
-        {
-            var result = new List<MailAttachment>();
-
-            foreach (var ek in eks)
-            {
-                result.Add(CreateAttachmentFromEk(ek));
-            }
-
-            return result;
-        }
-
-        private async Task AddPackageToEDYS(PackageMailContent packageData)
-        {
-            Debug.Print("Adding package to EDYS");
-
-            if(User.Current == null || User.Current.Id < 0)
-            {
-                Debug.Print($"User was invalid, trying to login again.");
-
-                for(int i = 0; i < 5; i++)
-                {
-                    Debug.Print($"Login attempt: {i + 1}");
-                    await LoginToDocsService();
-                    if(User.Current?.Id >= 0)
-                    {
-                        break;
-                    }
-				}
-
-                if(User.Current == null || User.Current.Id < 0)
-                {
-					Debug.Print($"Login attempts failed.");
-				}
-			}
-
-            var sourcesResult = await DocumentService.GetDocumentSources();
-            if(sourcesResult?.IsSuccessful != true)
-            {
-                Debug.Print($"Failed to retrieve sources from docs: {sourcesResult.ErrorMessage}");
-                return;
-            }
-
-            var source = sourcesResult.Value?.FirstOrDefault(s => s.Id == 114);
-            if(source == null)
-            {
-                Debug.Print($"Failed to retrieve KEP source");
-                return;
-            }
-
-            var document = new Document()
-            {
-                Name = packageData.Subject,
-                Description = packageData.Content,
-                IsOutgoing = false,
-                UploadDate = DateTime.Now,
-                LastRevisionDate = DateTime.Now,
-                Source = source,
-                SourceId = source.Id,
-                OwnerUserId = 10
-            };
-
-            var files = new List<DocumentFile>();
-            foreach(var attachment in packageData.Attachments)
-            {
-                var aesobDocumentFile = new DocumentFile()
-                {
-                    Name = $"Kep İletisi Eki: {packageData.KepSıraNo} - {attachment.Name}",
-                    Description = $"{packageData.KepSıraNo} no'lu kep iletisi eki",
-                    FileContent = attachment.Value,
-                    FileSize = attachment.Value.Length,
-                    FileName = attachment.Name,
-                    VisibleFileName = attachment.Name,
-                    Document = document,
-                    DocumentId = -1,
-                };
-
-                files.Add(aesobDocumentFile);
-            }
-
-            document.DocumentFiles = files.ToArray();
-
-            var uploadResult = await DocumentService.UploadDocument(document);
-            if (uploadResult?.IsSuccessful == true)
-            {
-                Debug.Print($"Document successfully added to document server. ({document.Name})");
-            }
-            else
-            {
-                Debug.Print($"Failed to add document to document server: {uploadResult?.ErrorMessage}");
-            }
-        }
-
-        private async Task MailPackageToReceivers(PackageMailContent downloadedPackage)
+        private async Task MailPackageToReceivers(PackageMailContent downloadedPackage, bool isInbox)
         {
 #if DEBUG
             if(downloadedPackage != null)
             {
                 Debug.Print("Skipping mail redirection in debug mode...");
+
+                var todaysData = GetDailyEmailData(DateTime.Now);
+                var dataName = isInbox ? "RedirectedKepMail" : "Out_RedirectedKepMail";
+                todaysData.AddSubData(_thisAsInterface.CreateServiceData(dataName, downloadedPackage.KepSıraNo));
+                _thisAsInterface.SaveData();
                 return;
             }
 #endif
@@ -510,13 +299,6 @@ namespace KepStandalone
 #else
             var postResult = await _httpClient.PostAsync("https://aesob.org.tr/api/Email/Redirect", jsonContent);
 #endif
-
-            if(postResult.StatusCode == System.Net.HttpStatusCode.OK)
-            {
-                var todaysData = GetDailyEmailData(DateTime.Now);
-                todaysData.AddSubData(_thisAsInterface.CreateServiceData("RedirectedKepMail", downloadedPackage.KepSıraNo));
-                _thisAsInterface.SaveData();
-            }
 
             var resultStream = postResult.Content.ReadAsStringAsync().Result;
             Debug.Print("EMail Yönlendirme Sonucu: " + resultStream);
@@ -647,6 +429,8 @@ namespace KepStandalone
 
         private BasicHttpBinding GetWebServiceConfigs()
         {
+            const int sizeMultiplier = 2;
+
             BasicHttpBinding basicHttpBinding = new BasicHttpBinding(BasicHttpSecurityMode.Transport);
             basicHttpBinding.Name = "eyServisSOAPBinding";
             basicHttpBinding.CloseTimeout = new TimeSpan(0, 10, 0);
@@ -655,18 +439,18 @@ namespace KepStandalone
             basicHttpBinding.SendTimeout = new TimeSpan(0, 10, 0);
             basicHttpBinding.AllowCookies = false;
             basicHttpBinding.BypassProxyOnLocal = true;
-            basicHttpBinding.MaxBufferPoolSize = 33554432;
-            basicHttpBinding.MaxReceivedMessageSize = 33554432;
-            basicHttpBinding.MaxBufferSize = 33554432;
+            basicHttpBinding.MaxBufferPoolSize = 33554432 * sizeMultiplier;
+            basicHttpBinding.MaxReceivedMessageSize = 33554432 * sizeMultiplier;
+            basicHttpBinding.MaxBufferSize = 33554432 * sizeMultiplier;
             basicHttpBinding.UseDefaultWebProxy = true;
             basicHttpBinding.MessageEncoding = WSMessageEncoding.Mtom;
 
             XmlDictionaryReaderQuotas readerQuotas = new XmlDictionaryReaderQuotas();
             readerQuotas.MaxDepth = 32;
-            readerQuotas.MaxStringContentLength = 41943040;
-            readerQuotas.MaxArrayLength = 16384;
-            readerQuotas.MaxBytesPerRead = 4096;
-            readerQuotas.MaxNameTableCharCount = 16384;
+            readerQuotas.MaxStringContentLength = 41943040 * sizeMultiplier;
+            readerQuotas.MaxArrayLength = 16384 * sizeMultiplier;
+            readerQuotas.MaxBytesPerRead = 4096 * sizeMultiplier;
+            readerQuotas.MaxNameTableCharCount = 16384 * sizeMultiplier;
 
             basicHttpBinding.ReaderQuotas = readerQuotas;
             basicHttpBinding.Security.Mode = BasicHttpSecurityMode.Transport;
